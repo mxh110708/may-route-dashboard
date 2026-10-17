@@ -12,6 +12,12 @@ export const LANGUAGES: { value: Language; label: string }[] = [
 ];
 
 export const TRANSLATIONS = {
+  "Current update connection: Direct (no proxy configured)": { "zh-Hans": "当前更新连接：直连（尚未设置代理）", "zh-Hant": "目前更新連線：直連（尚未設定代理）", "fa": "Current update connection: Direct (no proxy configured)", "ru": "Current update connection: Direct (no proxy configured)" },
+  "Current update proxy: {address}": { "zh-Hans": "当前更新代理：{address}", "zh-Hant": "目前更新代理：{address}", "fa": "Current update proxy: {address}", "ru": "Current update proxy: {address}" },
+  "Example: http://127.0.0.1:2080": { "zh-Hans": "例如：http://127.0.0.1:2080", "zh-Hant": "例如：http://127.0.0.1:2080", "fa": "Example: http://127.0.0.1:2080", "ru": "Example: http://127.0.0.1:2080" },
+  "Save to apply this connection": { "zh-Hans": "尚未保存，保存后生效", "zh-Hant": "尚未儲存，儲存後生效", "fa": "Save to apply this connection", "ru": "Save to apply this connection" },
+  "Cancel Download": { "zh-Hans": "取消下载", "zh-Hant": "取消下載", "fa": "Cancel Download", "ru": "Cancel Download" },
+  "Cancelling...": { "zh-Hans": "正在取消…", "zh-Hant": "正在取消…", "fa": "Cancelling...", "ru": "Cancelling..." },
   "Back": { "zh-Hans": "返回", "zh-Hant": "返回", "fa": "بازگشت", "ru": "Назад" },
   "More": { "zh-Hans": "更多", "zh-Hant": "更多", "fa": "بیشتر", "ru": "Ещё" },
   "Start Service": { "zh-Hans": "启动服务", "zh-Hant": "啟動服務", "fa": "شروع سرویس", "ru": "Запустить службу" },

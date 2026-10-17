@@ -540,7 +540,7 @@ function UpdateConnectionSettings({ host, updates }: {
             autoComplete="off"
             spellCheck={false}
             value={draft}
-            placeholder="http://127.0.0.1:2080"
+            placeholder={t("Example: http://127.0.0.1:2080")}
             disabled={busy}
             aria-describedby={error === "" ? hintId : `${hintId} ${errorId}`}
             aria-invalid={error !== ""}
@@ -554,9 +554,14 @@ function UpdateConnectionSettings({ host, updates }: {
         <p className="hint" id={hintId}>
           {t("Only used to check and download app updates. Leave blank for a direct connection. Supports HTTP, HTTPS and SOCKS5 without authentication.")}
         </p>
+        <p className="hint">
+          {updates.proxyAddress === ""
+            ? t("Current update connection: Direct (no proxy configured)")
+            : t("Current update proxy: {address}", { address: updates.proxyAddress })}
+        </p>
         {error !== "" && <p className={styles.fieldError} id={errorId} role="alert">{error}</p>}
         <div className="row-actions">
-          <span className={styles.updateConnectionStatus} role="status">{saved ? t("Update connection saved") : ""}</span>
+          <span className={styles.updateConnectionStatus} role="status">{draft !== updates.proxyAddress ? t("Save to apply this connection") : saved ? t("Update connection saved") : ""}</span>
           <Button disabled={busy || (draft === "" && updates.proxyAddress === "")} onClick={() => { void save(""); }}>
             {t("Use Direct Connection")}
           </Button>

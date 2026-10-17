@@ -139,7 +139,7 @@ function UpdateCheckPromptDialog(props: { host: DesktopHost }) {
   );
 }
 
-function UpdateDialog(props: {
+export function UpdateDialog(props: {
   host: DesktopHost;
   info: DesktopUpdateInfo;
   state: DesktopUpdatesState;
@@ -147,29 +147,34 @@ function UpdateDialog(props: {
   const host = props.host;
   const { t } = useI18n();
   const [elevationReason, setElevationReason] = useState<
-    Exclude<DesktopUpdateInstallResult, "started"> | null
+    Exclude<DesktopUpdateInstallResult, "started" | "cancelled"> | null
   >(null);
   const [elevating, setElevating] = useState(false);
+  const [requesting, setRequesting] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const info = props.info;
-  const busy = props.state.downloading || props.state.installing || elevating;
+  const busy = props.state.downloading || props.state.installing || elevating || requesting;
   const progressIndeterminate = props.state.installing || props.state.downloadProgress <= 0;
   const downloadProgress = Math.round(props.state.downloadProgress * 100);
 
   const close = () => {
-    if (!busy) {
-      closeUpdateDialog();
-    }
+    if (props.state.installing || elevating || cancelling || props.state.cancelling) return;
+    if (!busy) return closeUpdateDialog();
+    setCancelling(true);
+    void host.updates.cancelDownload().catch(showError).finally(() => setCancelling(false));
   };
 
   const install = () => {
+    setRequesting(true);
     void host.updates
       .downloadAndInstall()
       .then((result) => {
-        if (result !== "started") {
+        if (result !== "started" && result !== "cancelled") {
           setElevationReason(result);
         }
       })
-      .catch(showError);
+      .catch(showError)
+      .finally(() => setRequesting(false));
   };
 
   const installWithElevation = () => {
@@ -222,6 +227,11 @@ function UpdateDialog(props: {
         {t("New version available: {version}", { version: info.versionName })}
         {info.fileSize > 0 && ` (${formatBytes(info.fileSize)})`}
       </p>
+      <p className="hint" role="status">
+        {props.state.proxyAddress === ""
+          ? t("Current update connection: Direct (no proxy configured)")
+          : t("Current update proxy: {address}", { address: props.state.proxyAddress })}
+      </p>
       {info.releaseNotes !== "" && (
         <div className={styles.releaseNotes}>
           <GitHubMarkdown text={info.releaseNotes} />
@@ -249,8 +259,8 @@ function UpdateDialog(props: {
           {t("View Release")}
         </Button>
         <span className={styles.actionsSpacer} />
-        <Button disabled={busy} onClick={close}>
-          {t("Cancel")}
+        <Button disabled={props.state.installing || elevating || cancelling || props.state.cancelling} onClick={close}>
+          {t(cancelling || props.state.cancelling ? "Cancelling..." : busy ? "Cancel Download" : "Cancel")}
         </Button>
         <Button variant="primary" disabled={busy} onClick={install}>
           {t("Update")}
