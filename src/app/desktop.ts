@@ -171,6 +171,7 @@ export interface DesktopUpdatesState {
   trackSelectable: boolean;
   track: DesktopUpdateTrack;
   checkUpdateEnabled: boolean;
+  proxyAddress: string;
   prompted: boolean;
   info: DesktopUpdateInfo | null;
   checking: boolean;
@@ -392,6 +393,7 @@ export interface DesktopHost {
     check(): Promise<DesktopUpdateInfo | null>;
     getGitHubToken(): Promise<string>;
     setGitHubToken(value: string): Promise<void>;
+    setProxyAddress(value: string): Promise<string>;
     downloadAndInstall(): Promise<DesktopUpdateInstallResult>;
     installWithElevation(): Promise<boolean>;
     setTrack(track: DesktopUpdateTrack): Promise<void>;

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 
 import {
   createServerId,
@@ -13,7 +13,7 @@ import { formatBytes } from "../api/format";
 import { useStream } from "../api/stream";
 import { navigate, useApi, type AccentPreference, type ThemePreference } from "../app/context";
 import { useDesktopHost, useLocalDesktopHost } from "../app/desktop";
-import type { DesktopHost, DesktopSettingsState, DesktopUpdateTrack } from "../app/desktop";
+import type { DesktopHost, DesktopSettingsState, DesktopUpdatesState, DesktopUpdateTrack } from "../app/desktop";
 import {
   loadDisableDeprecatedWarnings,
   saveDisableDeprecatedWarnings,
@@ -438,6 +438,7 @@ function UpdateSettingsSection({ host }: { host: DesktopHost }) {
           </button>
         )}
       </div>
+      <UpdateConnectionSettings host={host} updates={updates} />
       {noUpdatesVisible && (
         <Dialog onClose={() => setNoUpdatesVisible(false)}>
           <h3>{t("Check Update")}</h3>
@@ -485,6 +486,84 @@ function UpdateSettingsSection({ host }: { host: DesktopHost }) {
         </Dialog>
       )}
     </div>
+  );
+}
+
+function UpdateConnectionSettings({ host, updates }: {
+  host: DesktopHost;
+  updates: DesktopUpdatesState;
+}) {
+  const { t } = useI18n();
+  const hintId = useId();
+  const errorId = useId();
+  const [draft, setDraft] = useState(updates.proxyAddress);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+  const busy = saving || updates.checking || updates.downloading || updates.installing;
+
+  useEffect(() => {
+    setDraft(updates.proxyAddress);
+  }, [updates.proxyAddress]);
+
+  const save = async (address: string) => {
+    setSaving(true);
+    setError("");
+    setSaved(false);
+    try {
+      setDraft(await host.updates.setProxyAddress(address));
+      setSaved(true);
+    } catch (cause) {
+      setError(cause instanceof Error && cause.message === "Update operation in progress"
+        ? t("Wait for the current update operation to finish before changing the proxy.")
+        : t("Unable to save the update proxy. Check the address and try again."));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <details className={styles.updateConnection}>
+      <summary>{t("Update Connection")}</summary>
+      <form className={styles.updateConnectionBody} onSubmit={(event) => {
+        event.preventDefault();
+        if (!busy) void save(draft);
+      }}>
+        <Field label={t("Proxy address (optional)")}>
+          <input
+            className="input"
+            type="text"
+            inputMode="url"
+            autoCapitalize="off"
+            autoComplete="off"
+            spellCheck={false}
+            value={draft}
+            placeholder="http://127.0.0.1:2080"
+            disabled={busy}
+            aria-describedby={error === "" ? hintId : `${hintId} ${errorId}`}
+            aria-invalid={error !== ""}
+            onChange={(event) => {
+              setDraft(event.target.value);
+              setSaved(false);
+              setError("");
+            }}
+          />
+        </Field>
+        <p className="hint" id={hintId}>
+          {t("Only used to check and download app updates. Leave blank for a direct connection. Supports HTTP, HTTPS and SOCKS5 without authentication.")}
+        </p>
+        {error !== "" && <p className={styles.fieldError} id={errorId} role="alert">{error}</p>}
+        <div className="row-actions">
+          <span className={styles.updateConnectionStatus} role="status">{saved ? t("Update connection saved") : ""}</span>
+          <Button disabled={busy || (draft === "" && updates.proxyAddress === "")} onClick={() => { void save(""); }}>
+            {t("Use Direct Connection")}
+          </Button>
+          <Button variant="primary" type="submit" disabled={busy || draft === updates.proxyAddress}>
+            {saving ? <Spinner /> : t("Save")}
+          </Button>
+        </div>
+      </form>
+    </details>
   );
 }
 

@@ -14,6 +14,46 @@
   border-top: 1px solid var(--border);
 }
 
+.update-connection {
+  margin-top: var(--space-12);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+
+.update-connection > summary {
+  padding: var(--space-14) var(--space-16);
+  cursor: pointer;
+  border-radius: inherit;
+}
+
+.update-connection > summary:hover {
+  background: var(--hover);
+}
+
+.update-connection > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.update-connection-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding: var(--space-16);
+  border-top: 1px solid var(--border);
+}
+
+.update-connection-body p {
+  margin: 0;
+}
+
+.update-connection-status {
+  margin-inline-end: auto;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
 .theme-editor {
   composes: text-mono from global;
   height: auto;
