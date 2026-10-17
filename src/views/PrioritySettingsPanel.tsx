@@ -41,21 +41,25 @@ export function PrioritySettingsPanel({ host }: { host: DesktopHost }) {
   const accept = (value: DesktopPriorityState) => {
     setView(value); setBase(value); setDraft(value.settings); setCustom(value.settings.order.length > 0);
   };
+  const dirty = !!draft && !!base && (JSON.stringify(draft) !== JSON.stringify(base.settings) || custom !== (base.settings.order.length > 0));
   useEffect(() => {
     if (!api.priorityState) return;
     let stale = false;
-    api.priorityState().then(value => { if (!stale) accept(value); }).catch(reason => { if (!stale) setError(String(reason)); });
-    const timer = setInterval(() => {
+    let request = 0;
+    const poll = () => {
       if (mutating.current) return;
       const stamp = generation.current;
-      api.priorityState!().then(value => { if (!stale && stamp === generation.current) setView(value); }).catch(reason => { if (!stale && stamp === generation.current) setError(String(reason)); });
-    }, 5000);
-    return () => { stale = true; clearInterval(timer); };
-  }, [api]);
+      const current = ++request;
+      api.priorityState!().then(value => { if (!stale && current === request && stamp === generation.current) { if (dirty) setView(value); else accept(value); } }).catch(reason => { if (!stale && current === request && stamp === generation.current) setError(String(reason)); });
+    };
+    poll();
+    const timer = setInterval(poll, 5000);
+    const unsubscribe = api.onChanged(poll);
+    return () => { stale = true; clearInterval(timer); unsubscribe(); };
+  }, [api, dirty]);
   if (!api.priorityState || !api.prioritySave || !api.priorityApply) return null;
   const nodes = view?.groups.find(group => group.tag === draft?.group)?.nodes ?? [];
   const conflict = !!view && !!base && (view.revision !== base.revision || view.profileId !== base.profileId);
-  const dirty = !!draft && !!base && (JSON.stringify(draft) !== JSON.stringify(base.settings) || custom !== (base.settings.order.length > 0));
   const validation = draft ? priorityDraftError(draft, custom, nodes) : null;
   const order = draft ? custom ? draft.order : nodes : [];
   const change = (patch: Partial<DesktopPrioritySettings>) => { if (draft) setDraft({ ...draft, ...patch }); setMessage(""); };
@@ -91,6 +95,7 @@ export function PrioritySettingsPanel({ host }: { host: DesktopHost }) {
       </div>
       {view.active && view.selected && !view.monitoredSelected && <p role="alert">当前节点不在运行策略的顺序中，不受自动切换保护。请将其加入顺序，保存后重载。</p>}
       {view.needsReload && <p role="status">已保存的策略尚未应用，重载代理或下次启动后生效。</p>}
+      {view.reconciled && <p role="status">已根据当前配置同步顺序，失效节点已排除；有效节点保留原有顺序。新增节点可从“加入备用节点”选择；原顺序全部失效时跟随当前组的顺序。</p>}
       {conflict && <p role="alert">配置文件或当前配置已在其他位置变化，请刷新后再保存。</p>}
       {dirty && <p>有未保存修改，当前运行策略不受影响。</p>}
       {draft.group && !view.groups.some(group => group.tag === draft.group) && <p role="alert">已保存的分组“{draft.group}”不存在或不符合入口代理组结构，请重新选择；不会自动改用其他分组。</p>}
@@ -159,7 +164,7 @@ export function PrioritySettingsPanel({ host }: { host: DesktopHost }) {
       {validation && <p role="alert">{validation}</p>}
       {message && <p role="status">{message}</p>}
       <div className={styles.actions}>
-        <Button variant="primary" disabled={busy || !dirty || conflict || !!validation} onClick={() => void save()}>保存配置</Button>
+        <Button variant="primary" disabled={busy || (!dirty && !view.reconciled) || conflict || !!validation} onClick={() => void save()}>保存配置</Button>
         <Button disabled={busy || dirty || conflict || !view.running} onClick={() => setConfirm(true)}>重载并应用</Button>
         <Button disabled={busy} onClick={() => void refresh()}>{dirty ? "放弃未保存修改并刷新" : "刷新"}</Button>
       </div>

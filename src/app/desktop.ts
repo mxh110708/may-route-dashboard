@@ -55,6 +55,7 @@ export interface DesktopPrioritySettings {
   failureIntervalMs: number;
 }
 export interface DesktopPriorityState {
+  reconciled?: boolean;
   settings: DesktopPrioritySettings;
   revision: string;
   profileId: string | null;
@@ -412,9 +413,16 @@ export interface DesktopHost {
     onDownloadProgress(listener: (progress: DesktopTaildropDownloadProgress) => void): () => void;
   };
   // window.close() destroys sandboxed renderer webContents without emitting the host window's close event.
+  fonts?: {
+    list(): Promise<Array<{ id: string; name: string }>>;
+    import(): Promise<{ id: string; name: string } | null>;
+    data(id: string): Promise<Uint8Array>;
+    select(id: string): Promise<void>;
+  };
   application: {
+    openDataDirectory?(): Promise<void>;
     shareFile(fileName: string, data: Uint8Array | string): Promise<void>;
-    showMainWindow(): void;
+    showMainWindow(route?: string): void;
     closeTrayMenu(): void;
     quit(): void;
   };

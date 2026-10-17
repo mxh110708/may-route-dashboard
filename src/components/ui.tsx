@@ -485,6 +485,7 @@ export function ThemeMenu(props: {
 
 export function Select<T extends string | number>(props: {
   id?: string;
+  ariaLabel?: string;
   options: { value: T; label: ReactNode }[];
   value: T;
   onChange: (value: T) => void;
@@ -540,6 +541,7 @@ export function Select<T extends string | number>(props: {
         id={props.id}
         type="button"
         className={props.inline ? "select inline" : "select"}
+        aria-label={props.ariaLabel}
         aria-haspopup="listbox"
         aria-expanded={open}
         disabled={props.disabled}

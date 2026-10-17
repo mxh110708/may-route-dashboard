@@ -1,615 +1,166 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { DaemonApi } from "./api/daemon";
 import type { Server } from "./api/config";
 import { urlTestDelayTone } from "./api/format";
 import { useStream } from "./api/stream";
-import {
-  applyAccent,
-  applyTheme,
-  loadAccentPreference,
-  loadThemePreference,
-  watchSystemTheme,
-} from "./app/context";
+import { applyAccent, applyTheme, loadAccentPreference, loadThemePreference, watchSystemTheme } from "./app/context";
 import { useDaemonConnection, useDesktopProfiles } from "./app/desktop";
 import type { DesktopHost } from "./app/desktop";
 import { dismissError, showError, useCurrentError } from "./app/errorStore";
 import { I18nProvider, useI18n } from "./app/i18n";
+import { useInterfaceTypography } from "./app/interfaceFont";
 import { Icon } from "./components/Icon";
+import type { IconName } from "./components/Icon";
 import { Spinner, Switch } from "./components/ui";
 import { ServiceStatus_Type } from "./gen/daemon/started_service_pb";
-import type { Group } from "./gen/daemon/started_service_pb";
-import { cx } from "./lib/cx";
 import { watchStoredValues } from "./lib/storage";
 import styles from "./TrayMenu.module.css";
 
 const TRAY_LOCAL_SERVER: Server = { id: "tray-local", name: "MXH Route", url: "", secret: "" };
+type Page = "home" | "groups" | "nodes" | "profiles";
 
-const HOVER_CLOSE_DELAY = 180;
-
-const GROUPS_SUBMENU = "\0groups";
-const PROFILES_SUBMENU = "\0profiles";
-
-function numericStyleValue(value: string): number {
-  const parsed = Number.parseFloat(value);
-  return Number.isFinite(parsed) ? parsed : 0;
+export function TrayMenu({ desktop }: { desktop: DesktopHost }) {
+  return <I18nProvider><TrayMenuContent host={desktop} /></I18nProvider>;
 }
 
-function alignCascadeToParent(root: HTMLElement, level: string) {
-  const parent = root.querySelector<HTMLElement>(
-    `[data-tray-submenu-parent="${level}"][data-tray-submenu-active="true"]`,
-  );
-  const cascade = root.querySelector<HTMLElement>(`[data-tray-cascade-level="${level}"]`);
-  if (parent === null || cascade === null) {
-    return;
-  }
-  cascade.style.transform = "";
-  const content = root.closest<HTMLElement>("[data-tray-content]");
-  if (content === null) {
-    return;
-  }
-  const contentBounds = content.getBoundingClientRect();
-  const contentStyle = getComputedStyle(content);
-  const minimumTop = contentBounds.top + numericStyleValue(contentStyle.paddingTop);
-  const maximumBottom = contentBounds.bottom - numericStyleValue(contentStyle.paddingBottom);
-  const cascadeBounds = cascade.getBoundingClientRect();
-  const maximumTop = Math.max(minimumTop, maximumBottom - cascadeBounds.height);
-  const targetTop = Math.min(
-    Math.max(parent.getBoundingClientRect().top, minimumTop),
-    maximumTop,
-  );
-  cascade.style.transform = `translateY(${Math.round(targetTop - cascadeBounds.top)}px)`;
-}
-
-export function TrayMenu(props: { desktop: DesktopHost }) {
-  return (
-    <I18nProvider>
-      <TrayMenuContent host={props.desktop} />
-    </I18nProvider>
-  );
-}
-
-function useTrayTheme() {
-  useEffect(() => {
-    const apply = () => {
-      applyTheme(loadThemePreference());
-      applyAccent(loadAccentPreference());
-    };
-    apply();
-    const unwatchSystem = watchSystemTheme(loadThemePreference);
-    const unwatchStored = watchStoredValues(apply);
-    return () => {
-      unwatchSystem();
-      unwatchStored();
-    };
-  }, []);
-}
-
-interface SubmenuController {
-  activeKey: string | null;
-  open: (key: string) => void;
-  scheduleClose: () => void;
-  cancelClose: () => void;
-  close: () => void;
-}
-
-function useSubmenuController(): SubmenuController {
-  const [activeKey, setActiveKey] = useState<string | null>(null);
-  const closeTimer = useRef<number | null>(null);
-
-  const cancelClose = () => {
-    if (closeTimer.current !== null) {
-      clearTimeout(closeTimer.current);
-      closeTimer.current = null;
-    }
-  };
-  const open = (key: string) => {
-    cancelClose();
-    setActiveKey(() => key);
-  };
-  const close = () => {
-    cancelClose();
-    setActiveKey(null);
-  };
-  const scheduleClose = () => {
-    cancelClose();
-    closeTimer.current = window.setTimeout(close, HOVER_CLOSE_DELAY);
-  };
-  useEffect(() => cancelClose, []);
-  return { activeKey, open, scheduleClose, cancelClose, close };
-}
-
-function useMenuKeyboard(controller: SubmenuController, closeMenu: () => void) {
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        if (controller.activeKey !== null) {
-          controller.close();
-        } else {
-          closeMenu();
-        }
-        return;
-      }
-      if (event.key === "ArrowLeft" && controller.activeKey !== null) {
-        controller.close();
-        return;
-      }
-      if (event.key !== "ArrowDown" && event.key !== "ArrowUp") {
-        return;
-      }
-      const focusables = [...document.querySelectorAll<HTMLElement>("button:not(:disabled)")];
-      if (focusables.length === 0) {
-        return;
-      }
-      const index = focusables.indexOf(document.activeElement as HTMLElement);
-      const step = event.key === "ArrowDown" ? 1 : -1;
-      focusables[(index + step + focusables.length) % focusables.length].focus();
-      event.preventDefault();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [controller, closeMenu]);
-}
-
-function TrayMenuContent(props: { host: DesktopHost }) {
-  const host = props.host;
+function TrayMenuContent({ host }: { host: DesktopHost }) {
   const { t, language } = useI18n();
-  const closeMenu = () => host.application.closeTrayMenu();
-  useTrayTheme();
-  const controller = useSubmenuController();
-  useMenuKeyboard(controller, closeMenu);
-  const api = useMemo(
-    () => new DaemonApi(TRAY_LOCAL_SERVER, language, host.transport),
-    [host, language],
-  );
+  useInterfaceTypography(host);
+  const api = useMemo(() => new DaemonApi(TRAY_LOCAL_SERVER, language, host.transport), [host, language]);
   const connection = useDaemonConnection(host);
-  const serviceStatus = useStream(api.serviceStatus);
+  const service = useStream(api.serviceStatus);
   const groups = useStream(api.groups);
-  const { selectedId, profiles } = useDesktopProfiles(host);
-  const errorMessage = useCurrentError();
+  const routing = useStream(api.clashMode);
+  const { profiles, selectedId, captureMode } = useDesktopProfiles(host);
+  const [page, setPage] = useState<Page>("home");
+  const [groupTag, setGroupTag] = useState("");
+  const [search, setSearch] = useState("");
   const [busy, setBusy] = useState(false);
-  const contentRef = useRef<HTMLDivElement>(null);
-
-  useLayoutEffect(() => {
-    if (contentRef.current !== null) {
-      alignCascadeToParent(contentRef.current, "1");
-    }
-  });
-
+  const executing = useRef(false);
+  const panel = useRef<HTMLDivElement>(null);
+  const error = useCurrentError();
+  const status = service.data.status?.status ?? ServiceStatus_Type.IDLE;
+  const started = status === ServiceStatus_Type.STARTED;
+  const transitioning = status === ServiceStatus_Type.STARTING || status === ServiceStatus_Type.STOPPING;
   const connected = connection.phase === "connected";
-  const statusType = serviceStatus.data.status?.status ?? ServiceStatus_Type.IDLE;
-  const started = statusType === ServiceStatus_Type.STARTED;
-  const switchOn =
-    started ||
-    statusType === ServiceStatus_Type.STARTING ||
-    statusType === ServiceStatus_Type.STOPPING;
-  const transitioning =
-    statusType === ServiceStatus_Type.STARTING || statusType === ServiceStatus_Type.STOPPING;
+  const running = connected && started;
+  const disabled = busy || transitioning;
+  const selected = profiles.find((profile) => profile.id === selectedId);
+  const selectable = groups.data.groups.filter((group) => group.selectable);
+  const group = selectable.find((group) => group.tag === groupTag);
+  const back = () => { setPage(page === "nodes" ? "groups" : "home"); setSearch(""); };
+  const open = (route: string) => { host.application.showMainWindow(route); host.application.closeTrayMenu(); };
+  const run = (action: () => Promise<unknown>) => {
+    if (executing.current) return;
+    executing.current = true;
+    setBusy(true);
+    void action().catch(showError).finally(() => {
+      executing.current = false;
+      setBusy(false);
+      api.serviceStatus.reconnectNow();
+      api.groups.reconnectNow();
+      api.clashMode.reconnectNow();
+    });
+  };
 
   useEffect(() => {
-    if (started) {
-      api.groups.retryNow();
-    }
+    const apply = () => { applyTheme(loadThemePreference()); applyAccent(loadAccentPreference()); };
+    apply();
+    const system = watchSystemTheme(loadThemePreference), stored = watchStoredValues(apply);
+    return () => { system(); stored(); };
+  }, []);
+  useEffect(() => {
+    const opened = () => {
+      setPage("home"); setSearch("");
+      api.serviceStatus.reconnectNow(); api.groups.reconnectNow(); api.clashMode.reconnectNow();
+      requestAnimationFrame(() => panel.current?.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus());
+    };
+    window.addEventListener("tray-menu-open", opened);
+    return () => window.removeEventListener("tray-menu-open", opened);
+  }, [api]);
+  useEffect(() => {
+    if (started) { api.groups.retryNow(); api.clashMode.retryNow(); }
   }, [started, api]);
 
-  const toggleService = (value: boolean) => {
-    setBusy(true);
-    (value ? host.service.start() : host.service.stop())
-      .catch(showError)
-      .finally(() => {
-        api.serviceStatus.reconnectNow();
-        setBusy(false);
-      });
-  };
-
-  const selectableGroups = groups.data.groups.filter((group) => group.selectable);
-  const running = connected && started;
-
-  const dismissOnBackground = (event: MouseEvent) => {
-    if (event.target === event.currentTarget) {
-      closeMenu();
-    }
-  };
-
-  const cascade =
-    controller.activeKey === null ? null : (
-      controller.activeKey === PROFILES_SUBMENU ? (
-        <div
-          className={styles.submenu}
-          data-tray-cascade-level="1"
-          onMouseEnter={controller.cancelClose}
-          onMouseLeave={controller.scheduleClose}
-        >
-          <ProfilesSubmenu
-            profiles={profiles}
-            selectedId={selectedId}
-            onSelect={(id) => host.profiles.select(id).then(closeMenu).catch(showError)}
-          />
-        </div>
-      ) : (
-        <GroupsCascade
-          groups={selectableGroups}
-          api={api}
-          onMouseEnter={controller.cancelClose}
-          onMouseLeave={controller.scheduleClose}
-        />
-      )
-    );
-
-  return (
-    <div
-      className={styles.viewport}
-      role="presentation"
-      onMouseLeave={controller.scheduleClose}
-      onMouseDown={dismissOnBackground}
-    >
-      <div
-        ref={contentRef}
-        className={styles.content}
-        role="presentation"
-        data-tray-content
-        onMouseDown={dismissOnBackground}
-      >
-        <div className={styles.panel} data-tray-panel>
-          <div className={styles.header}>
-            <span className={styles.title}>MXH Route</span>
-            {connected ? (
-              <Switch
-                label={t("Service")}
-                value={switchOn}
-                disabled={busy || transitioning || (!switchOn && profiles.length === 0)}
-                onChange={toggleService}
-              />
-            ) : (
-              <Spinner />
-            )}
-          </div>
-          {errorMessage !== null && (
-            <div className={styles.error}>
-              <span className={styles.errorText}>{errorMessage}</span>
-              <button type="button" className={styles.errorDismiss} aria-label={t("Ok")} onClick={dismissError}>
-                <Icon name="close" size={14} />
-              </button>
-            </div>
-          )}
-          {running && selectableGroups.length > 0 && (
-            <div className={styles.section}>
-              <ParentRow
-                menuKey={GROUPS_SUBMENU}
-                label={t("Groups")}
-                detail=""
-                controller={controller}
-              />
-            </div>
-          )}
-          <div className={styles.section}>
-            <ParentRow
-              menuKey={PROFILES_SUBMENU}
-              label={t("Profiles")}
-              detail={profiles.find((profile) => profile.id === selectedId)?.name ?? ""}
-              controller={controller}
-            />
-          </div>
-          <div className={styles.section}>
-            <button
-              type="button"
-              className={styles.row}
-              onMouseEnter={controller.close}
-              onClick={() => {
-                host.application.showMainWindow();
-                closeMenu();
-              }}
-            >
-              <span className={styles.rowIcon}>
-                <Icon name="open_in_new" size={16} />
-              </span>
-              <span className={styles.rowLabel}>{t("Open")}</span>
-            </button>
-            <button
-              type="button"
-              className={styles.row}
-              onMouseEnter={controller.close}
-              onClick={host.application.quit}
-            >
-              <span className={styles.rowIcon}>
-                <Icon name="power_settings_new" size={16} />
-              </span>
-              <span className={styles.rowLabel}>{t("Quit")}</span>
-            </button>
-          </div>
-        </div>
-        {cascade}
-      </div>
-    </div>
-  );
-}
-
-function ParentRow(props: {
-  menuKey: string;
-  label: string;
-  detail: string;
-  controller: SubmenuController;
-}) {
-  const { menuKey, label, detail, controller } = props;
-  const active = controller.activeKey === menuKey;
-  return (
-    <button
-      type="button"
-      className={cx(styles.row, active && styles.rowActive)}
-      aria-haspopup="menu"
-      aria-expanded={active}
-      data-tray-submenu-parent="1"
-      data-tray-submenu-active={active}
-      onMouseEnter={() => controller.open(menuKey)}
-      onClick={() => controller.open(menuKey)}
-      onKeyDown={(event) => {
-        if (event.key === "ArrowRight" || event.key === "Enter") {
-          event.preventDefault();
-          controller.open(menuKey);
-        }
-      }}
-    >
-      <span className={styles.rowLabel}>{label}</span>
-      {detail !== "" && <span className={styles.rowDetail}>{detail}</span>}
-      <Icon name="keyboard_arrow_right" size={16} />
+  const row = (label: string, action: () => void, icon?: IconName, detail?: string, unavailable = false) => (
+    <button type="button" className={styles.row} disabled={disabled || unavailable} onClick={action}>
+      {icon && <Icon name={icon} size={17} />}<span className={styles.rowLabel}>{label}</span>
+      {detail && <span className={styles.detail}>{detail}</span>}
     </button>
   );
-}
-
-function GroupsCascade(props: {
-  groups: Group[];
-  api: DaemonApi;
-  onMouseEnter: () => void;
-  onMouseLeave: () => void;
-}) {
-  const [activeTag, setActiveTag] = useState<string | null>(null);
-  const closeTimer = useRef<number | null>(null);
-  const cascadeRef = useRef<HTMLDivElement>(null);
-  const activeGroup = props.groups.find((group) => group.tag === activeTag) ?? null;
-  const largestGroup = props.groups.reduce<Group | null>(
-    (largest, group) => largest === null || group.items.length > largest.items.length ? group : largest,
-    null,
-  );
-
-  const cancelClose = () => {
-    if (closeTimer.current !== null) {
-      clearTimeout(closeTimer.current);
-      closeTimer.current = null;
-    }
-  };
-  const close = () => {
-    cancelClose();
-    setActiveTag(null);
-  };
-  const scheduleClose = () => {
-    cancelClose();
-    closeTimer.current = window.setTimeout(close, HOVER_CLOSE_DELAY);
-  };
-  const open = (tag: string) => {
-    cancelClose();
-    setActiveTag(() => tag);
-  };
-
-  useLayoutEffect(() => {
-    if (cascadeRef.current !== null) {
-      alignCascadeToParent(cascadeRef.current, "2");
-    }
-  });
-
-  useEffect(() => cancelClose, []);
-  return (
-    <div
-      ref={cascadeRef}
-      className={styles.cascade}
-      data-tray-cascade-level="1"
-      onMouseEnter={props.onMouseEnter}
-      onMouseLeave={props.onMouseLeave}
-    >
-      <div className={styles.submenu}>
-        <GroupsSubmenu
-          groups={props.groups}
-          api={props.api}
-          activeTag={activeTag}
-          onOpen={open}
-          onClose={close}
-        />
+  const modeLabel = (mode: string) => mode.toLowerCase() === "rule" ? t("Rule") : mode.toLowerCase() === "global" ? t("Global") : mode.toLowerCase() === "direct" ? t("Direct") : mode;
+  const matches = (name: string) => name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase());
+  const title = page === "groups" ? t("Groups") : page === "profiles" ? t("Profiles") : group?.tag ?? t("Groups");
+  return <div className={styles.viewport} onMouseDown={(event) => { if (event.target === event.currentTarget) host.application.closeTrayMenu(); }}>
+    <div ref={panel} className={styles.panel} role="dialog" aria-label={t("Tray menu")} onKeyDown={(event) => {
+      if (event.key === "Escape") { event.preventDefault(); if (page === "home") host.application.closeTrayMenu(); else back(); return; }
+      if (event.target instanceof HTMLInputElement && event.key !== "Tab") return;
+      if (!["ArrowDown", "ArrowUp", "Tab"].includes(event.key)) return;
+      const items = [...panel.current!.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled)")];
+      if (!items.length) return;
+      const step = event.key === "ArrowUp" || (event.key === "Tab" && event.shiftKey) ? -1 : 1;
+      const current = items.indexOf(document.activeElement as HTMLElement);
+      items[(current + step + items.length) % items.length].focus(); event.preventDefault();
+    }}>
+      <header className={styles.header}>
+        {page !== "home" && <button type="button" className={styles.iconButton} aria-label={t("Back")} onClick={back}><Icon name="arrow_back" size={18} /></button>}
+        <div className={styles.heading}><strong>{page === "home" ? "MXH Route" : title}</strong>
+          <span className={styles.status}>{busy ? t("Please wait") : status === ServiceStatus_Type.STOPPING ? t("Service stopping...") : transitioning ? t("Service starting...") : running ? t("Service is Running") : connected ? t("Service not started") : t("Disconnected")}</span></div>
+        {page === "home" && <Switch label={t("Service")} value={started || transitioning} disabled={disabled || !connected || (!started && !selectedId)} onChange={(enabled) => run(() => enabled ? host.service.start() : host.service.stop())} />}
+      </header>
+      {error && <div className={styles.error} role="alert"><span>{error}</span><button type="button" aria-label={t("Ok")} onClick={dismissError}><Icon name="close" size={16} /></button></div>}
+      {page !== "home" && <input className={styles.search} type="search" value={search} placeholder={t("Search")} aria-label={t("Search")} onChange={(event) => setSearch(event.target.value)} />}
+      <div className={styles.body}>
+        {page === "home" ? <>
+          <section className={styles.section}>
+            <div className={styles.sectionTitle}>{t("Traffic Capture")}</div>
+            <div className={styles.choices} role="radiogroup" aria-label={t("Traffic Capture")}>
+              {(["system-proxy", "tun"] as const).map((mode) => <button key={mode} type="button" role="radio" aria-checked={captureMode === mode} disabled={disabled || !connected} onClick={() => { if (mode !== captureMode) run(() => host.profiles.setCaptureMode(mode)); }}>{mode === "tun" ? t("TUN Mode") : t("System Proxy")}</button>)}
+            </div>
+            {!started && <p className={styles.hint}>{t("Used when the service starts")}</p>}
+            <div className={styles.sectionTitle}>{t("Routing Mode")}</div>
+            <div className={styles.choices} role="radiogroup" aria-label={t("Routing Mode")}>
+              {routing.data.modeList.length ? routing.data.modeList.map((mode) => <button key={mode} type="button" role="radio" aria-checked={routing.data.currentMode === mode} disabled={disabled || !running} onClick={() => { if (mode !== routing.data.currentMode) run(() => api.setClashMode(mode)); }}>{modeLabel(mode)}</button>) : <span className={styles.hint}>{t("Service not started")}</span>}
+            </div>
+          </section>
+          <section className={styles.section}>
+            {row(t("Groups"), () => setPage("groups"), "folder", String(selectable.length), !running)}
+            {row(t("Profiles"), () => setPage("profiles"), "description", selected?.name ?? t("Empty profiles"))}
+            {row(t("Reload profile"), () => run(() => host.service.start()), "sync", undefined, !running || !selectedId)}
+            {row(t("Close All Connections"), () => run(() => api.closeAllConnections()), "close", undefined, !running)}
+          </section>
+          <section className={styles.section}>
+            {row(t("Connections"), () => open("connections"), "swap_vert")}
+            {row(t("Logs"), () => open("logs"), "terminal")}
+            {row(t("Settings"), () => open("settings"), "settings")}
+            {host.application.openDataDirectory && row(t("Open data directory"), () => run(() => host.application.openDataDirectory!()), "folder")}
+          </section>
+        </> : page === "profiles" ? <>
+          {profiles.filter((profile) => matches(profile.name)).map((profile) => <div key={profile.id} className={styles.profile}>
+            <button type="button" className={styles.row} disabled={disabled || !connected} onClick={() => { if (profile.id !== selectedId) run(() => host.profiles.select(profile.id)); }}>
+              <span className={styles.check}>{profile.id === selectedId && <Icon name="check" size={17} />}</span><span className={styles.rowLabel}>{profile.name}</span>
+            </button>
+            {profile.type === "remote" && <button type="button" className={styles.iconButton} aria-label={`${t("Update")} ${profile.name}`} title={t("Update")} disabled={disabled || !connected} onClick={() => run(() => host.profiles.updateRemote(profile.id))}><Icon name="sync" size={17} /></button>}
+          </div>)}
+          {profiles.length === 0 && <p className={styles.empty}>{t("Empty profiles")}</p>}
+        </> : page === "groups" ? <>
+          {row(t("URLTest All"), () => run(() => Promise.all(selectable.map((item) => api.urlTest(item.tag)))), "speed", undefined, !running)}
+          {selectable.filter((item) => matches(item.tag)).map((item) => <button key={item.tag} type="button" className={styles.row} disabled={disabled || !running} onClick={() => { setGroupTag(item.tag); setPage("nodes"); setSearch(""); }}><span className={styles.rowLabel}>{item.tag}</span><span className={styles.detail}>{item.selected}</span><Icon name="keyboard_arrow_right" size={16} /></button>)}
+          {!running && <p className={styles.empty}>{t("Service not started")}</p>}
+        </> : group ? <>
+          {row(t("URLTest"), () => run(() => api.urlTest(group.tag)), "speed", undefined, !running)}
+          {group.items.filter((item) => matches(item.tag)).map((item) => <button type="button" key={item.tag} className={styles.row} role="radio" aria-checked={item.tag === group.selected} disabled={disabled || !running} onClick={() => { if (item.tag !== group.selected) run(() => api.selectOutbound(group.tag, item.tag)); }}>
+            <span className={styles.check}>{item.tag === group.selected && <Icon name="check" size={17} />}</span><span className={styles.rowLabel}>{item.tag}</span>
+            {item.urlTestDelay > 0 && <span className={styles.delay} data-tone={urlTestDelayTone(item.urlTestDelay)}>{item.urlTestDelay}ms</span>}
+          </button>)}
+        </> : <p className={styles.empty}>{t("Group unavailable")}</p>}
       </div>
-      <div
-        className={cx(styles.nodeSlot, activeGroup === null && styles.nodeSlotInactive)}
-        onMouseEnter={cancelClose}
-        onMouseLeave={scheduleClose}
-      >
-        {largestGroup !== null && <GroupNodesPlaceholder group={largestGroup} />}
-        {activeGroup !== null && (
-          <div className={styles.submenu} data-tray-cascade-level="2">
-            <GroupNodes group={activeGroup} api={props.api} onClose={close} />
-          </div>
-        )}
-      </div>
+      <footer className={styles.footer}>
+        <button type="button" className={styles.row} onClick={() => open("overview")}><Icon name="open_in_new" size={17} /><span>{t("Open")}</span></button>
+        <button type="button" className={styles.row} onClick={host.application.quit} disabled={busy}><Icon name="power_settings_new" size={17} /><span>{t("Quit")}</span></button>
+        {busy && <Spinner />}
+      </footer>
     </div>
-  );
-}
-
-function GroupsSubmenu(props: {
-  groups: Group[];
-  api: DaemonApi;
-  activeTag: string | null;
-  onOpen: (tag: string) => void;
-  onClose: () => void;
-}) {
-  const { t } = useI18n();
-  const [testingAll, setTestingAll] = useState(false);
-
-  return (
-    <>
-      <button
-        type="button"
-        className={styles.row}
-        disabled={testingAll}
-        onMouseEnter={props.onClose}
-        onClick={() => {
-          setTestingAll(true);
-          Promise.all(props.groups.map((group) => props.api.urlTest(group.tag)))
-            .catch(showError)
-            .finally(() => setTestingAll(false));
-        }}
-      >
-        <span className={styles.rowIcon}>
-          {testingAll ? <Spinner /> : <Icon name="speed" size={16} />}
-        </span>
-        <span className={styles.rowLabel}>{t("URLTest All")}</span>
-      </button>
-      <button
-        type="button"
-        className={styles.row}
-        onMouseEnter={props.onClose}
-        onClick={() => props.api.closeAllConnections().catch(showError)}
-      >
-        <span className={styles.rowIcon}>
-          <Icon name="close" size={16} />
-        </span>
-        <span className={styles.rowLabel}>{t("Close All Connections")}</span>
-      </button>
-      <div className={styles.section}>
-        {props.groups.map((group) => (
-          <button
-            type="button"
-            key={group.tag}
-            className={cx(styles.row, props.activeTag === group.tag && styles.rowActive)}
-            aria-haspopup="menu"
-            aria-expanded={props.activeTag === group.tag}
-            data-tray-submenu-parent="2"
-            data-tray-submenu-active={props.activeTag === group.tag}
-            onMouseEnter={() => props.onOpen(group.tag)}
-            onClick={() => props.onOpen(group.tag)}
-            onKeyDown={(event) => {
-              if (event.key === "ArrowRight" || event.key === "Enter") {
-                event.preventDefault();
-                props.onOpen(group.tag);
-              }
-            }}
-          >
-            <span className={styles.rowLabel}>{group.tag}</span>
-            {group.selected !== "" && <span className={styles.rowDetail}>{group.selected}</span>}
-            <Icon name="keyboard_arrow_right" size={16} />
-          </button>
-        ))}
-      </div>
-    </>
-  );
-}
-
-function GroupNodes(props: { group: Group; api: DaemonApi; onClose: () => void }) {
-  const { t } = useI18n();
-  const group = props.group;
-  const [testing, setTesting] = useState(false);
-
-  const runURLTest = () => {
-    setTesting(true);
-    props.api
-      .urlTest(group.tag)
-      .catch(showError)
-      .finally(() => setTesting(false));
-  };
-
-  const selectItem = (tag: string) => {
-    if (tag === group.selected) {
-      return;
-    }
-    props.api.selectOutbound(group.tag, tag).catch(showError);
-  };
-
-  return (
-    <>
-      <button
-        type="button"
-        className={styles.row}
-        disabled={testing}
-        onClick={runURLTest}
-        onKeyDown={(event) => {
-          if (event.key === "ArrowLeft") {
-            event.preventDefault();
-            event.stopPropagation();
-            props.onClose();
-          }
-        }}
-      >
-        <span className={styles.rowIcon}>
-          {testing ? <Spinner /> : <Icon name="speed" size={16} />}
-        </span>
-        <span className={styles.rowLabel}>{t("URLTest")}</span>
-      </button>
-      <div className={styles.submenuList}>
-        {group.items.map((item) => (
-          <button
-            type="button"
-            key={item.tag}
-            className={styles.row}
-            onClick={() => selectItem(item.tag)}
-            onKeyDown={(event) => {
-              if (event.key === "ArrowLeft") {
-                event.preventDefault();
-                event.stopPropagation();
-                props.onClose();
-              }
-            }}
-          >
-            <span className={styles.rowIcon}>
-              {item.tag === group.selected && <Icon name="check" size={16} />}
-            </span>
-            <span className={styles.rowLabel}>{item.tag}</span>
-            {item.urlTestDelay > 0 && (
-              <span className={cx(styles.delay, styles[urlTestDelayTone(item.urlTestDelay)])}>
-                {item.urlTestDelay}ms
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-    </>
-  );
-}
-
-function GroupNodesPlaceholder(props: { group: Group }) {
-  return (
-    <div className={cx(styles.submenu, styles.submenuPlaceholder)} aria-hidden="true">
-      <div className={styles.row}>
-        <span className={styles.rowIcon} />
-        <span className={styles.rowLabel}>URLTest</span>
-      </div>
-      <div className={styles.submenuList}>
-        {props.group.items.map((item) => (
-          <div key={item.tag} className={styles.row}>
-            <span className={styles.rowIcon} />
-            <span className={styles.rowLabel}>{item.tag}</span>
-            {item.urlTestDelay > 0 && <span className={styles.delay}>{item.urlTestDelay}ms</span>}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ProfilesSubmenu(props: {
-  profiles: { id: string; name: string }[];
-  selectedId: string | null;
-  onSelect: (id: string) => void;
-}) {
-  const { t } = useI18n();
-  if (props.profiles.length === 0) {
-    return <div className={styles.emptyRow}>{t("Empty profiles")}</div>;
-  }
-  return (
-    <div className={styles.submenuList}>
-      {props.profiles.map((profile) => (
-        <button type="button" key={profile.id} className={styles.row} onClick={() => props.onSelect(profile.id)}>
-          <span className={styles.rowIcon}>
-            {profile.id === props.selectedId && <Icon name="check" size={16} />}
-          </span>
-          <span className={styles.rowLabel}>{profile.name}</span>
-        </button>
-      ))}
-    </div>
-  );
+  </div>;
 }

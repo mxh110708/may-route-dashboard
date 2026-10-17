@@ -37,6 +37,7 @@ import { openUpdateDialog, useUpdatesState } from "./UpdateViews";
 import styles from "./SettingsView.module.css";
 import { cx } from "../lib/cx";
 import { PrioritySettingsPanel } from "./PrioritySettingsPanel";
+import { InterfaceFontSettings } from "./InterfaceFontSettings";
 
 export function SettingsView() {
   const { t } = useI18n();
@@ -231,6 +232,7 @@ function AppSettingsContent({
                 <span className="settings-row-label">{t("Theme")}</span>
                 <ThemeMenu accent={preferences.accent} onChange={preferences.onAccentChange} />
               </div>
+              <InterfaceFontSettings host={host} />
               <div className="settings-row">
                 <span className="settings-row-label">{t("Start At Login")}</span>
                 <button

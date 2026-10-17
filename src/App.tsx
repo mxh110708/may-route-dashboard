@@ -109,6 +109,7 @@ import { OpenConnectView } from "./views/OpenConnectView";
 import { OpenVPNView } from "./views/OpenVPNView";
 import styles from "./App.module.css";
 import { cx } from "./lib/cx";
+import { useInterfaceTypography } from "./app/interfaceFont";
 
 export type Route =
   | { page: "overview" }
@@ -398,6 +399,7 @@ const DESKTOP_ACTIVE_KEY = "desktop-active-server";
 
 export function App(props: { desktop?: DesktopHost } = {}) {
   const desktop = props.desktop ?? null;
+  useInterfaceTypography(desktop);
   return (
     <I18nProvider>
       <DesktopHostContext.Provider value={desktop}>

@@ -12,6 +12,20 @@ export const LANGUAGES: { value: Language; label: string }[] = [
 ];
 
 export const TRANSLATIONS = {
+  "Back": { "zh-Hans": "返回", "zh-Hant": "返回", "fa": "بازگشت", "ru": "Назад" },
+  "Please wait": { "zh-Hans": "请稍候", "zh-Hant": "請稍候", "fa": "لطفاً صبر کنید", "ru": "Подождите" },
+  "Disconnected": { "zh-Hans": "未连接", "zh-Hant": "未連線", "fa": "قطع اتصال", "ru": "Нет соединения" },
+  "Interface font": { "zh-Hans": "界面字体", "zh-Hant": "介面字型", "fa": "Interface font", "ru": "Interface font" },
+  "Original interface font": { "zh-Hans": "原版字体（默认）", "zh-Hant": "原版字型（預設）", "fa": "Original interface font", "ru": "Original interface font" },
+  "LXGW WenKai": { "zh-Hans": "霞鹜文楷（内置）", "zh-Hant": "霞鶩文楷（內建）", "fa": "LXGW WenKai", "ru": "LXGW WenKai" },
+  "Import font": { "zh-Hans": "导入字体", "zh-Hant": "匯入字型", "fa": "Import font", "ru": "Import font" },
+  "Font unavailable": { "zh-Hans": "字体不可用，请重新导入", "zh-Hant": "字型無法使用，請重新匯入", "fa": "Font unavailable", "ru": "Font unavailable" },
+  "TTF / OTF, up to 32 MiB. Used only inside this app.": { "zh-Hans": "支持 TTF / OTF，最多 32 MiB；仅在应用内使用。", "zh-Hant": "支援 TTF / OTF，最多 32 MiB；僅在應用程式內使用。", "fa": "TTF / OTF, up to 32 MiB. Used only inside this app.", "ru": "TTF / OTF, up to 32 MiB. Used only inside this app." },
+  "Tray menu": { "zh-Hans": "托盘菜单", "zh-Hant": "系統匣選單", "fa": "Tray menu", "ru": "Tray menu" },
+  "Reload profile": { "zh-Hans": "重新加载当前配置", "zh-Hant": "重新載入目前設定", "fa": "Reload profile", "ru": "Reload profile" },
+  "Open data directory": { "zh-Hans": "打开数据目录", "zh-Hant": "開啟資料目錄", "fa": "Open data directory", "ru": "Open data directory" },
+  "Used when the service starts": { "zh-Hans": "启动服务时使用所选接管模式。", "zh-Hant": "啟動服務時使用所選接管模式。", "fa": "Used when the service starts", "ru": "Used when the service starts" },
+  "Group unavailable": { "zh-Hans": "该代理组已不在当前配置中。", "zh-Hant": "該代理群組已不在目前設定中。", "fa": "Group unavailable", "ru": "Group unavailable" },
   "Automatic Failover": { "zh-Hans": "自动故障切换", "zh-Hant": "自動故障切換", "fa": "تغییر مسیر خودکار", "ru": "Автоматическое переключение" },
   "Overview": { "zh-Hans": "概述", "zh-Hant": "概述", "fa": "نمای کلی", "ru": "Обзор" },
   "Groups": { "zh-Hans": "组", "zh-Hant": "組", "fa": "گروه‌ها", "ru": "Группы" },
