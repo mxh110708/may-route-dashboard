@@ -7,28 +7,34 @@
   display: none;
 }
 
+:global(body[data-platform]) .sidebar {
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .sidebar {
   display: flex;
   flex-shrink: 0;
   flex-direction: column;
-  gap: var(--space-px);
+  gap: var(--space-4);
   width: var(--sidebar-width);
-  padding: var(--space-20) var(--space-12) var(--space-14);
-  background: var(--surface);
-  border-inline-end: 1px solid var(--border);
+  padding: var(--space-28) var(--space-16) var(--space-16);
+  color: var(--sidebar-text);
+  background: var(--sidebar);
+  border-inline-end: 1px solid var(--sidebar-border);
 }
 
 .sidebar-brand {
   composes: text-title from global;
   display: flex;
   flex-direction: column;
-  gap: var(--space-px);
-  padding: 0 var(--space-10) var(--space-14);
+  gap: var(--space-6);
+  padding: 0 var(--space-12) var(--space-24);
 }
 
 .sidebar-brand-version {
   composes: text-mono-caption from global;
-  color: var(--text-faint);
+  color: var(--sidebar-muted);
   letter-spacing: 0;
 }
 
@@ -37,10 +43,11 @@
   gap: var(--space-10);
   align-items: center;
   width: 100%;
-  padding: var(--space-8) var(--space-10);
+  min-height: 42px;
+  padding: var(--space-10) var(--space-12);
   font-size: var(--text-base);
   font-weight: var(--weight-medium);
-  color: var(--text-secondary);
+  color: var(--sidebar-text);
   text-align: start;
   cursor: pointer;
   background: transparent;
@@ -50,28 +57,28 @@
 }
 
 .nav-item:hover {
-  color: var(--text);
-  background: var(--hover);
+  color: var(--sidebar-text);
+  background: var(--sidebar-hover);
 }
 
 .nav-item.active {
   font-weight: var(--weight-semibold);
-  color: var(--accent-strong);
-  background: var(--accent-soft);
+  color: var(--sidebar-selected-text);
+  background: var(--sidebar-selected);
 }
 
 .nav-item :global(.icon) {
   flex-shrink: 0;
-  color: var(--text-faint);
+  color: var(--sidebar-icon);
   transition: color var(--transition-fast);
 }
 
 .nav-item:hover :global(.icon) {
-  color: var(--text-secondary);
+  color: var(--sidebar-icon);
 }
 
 .nav-item.active :global(.icon) {
-  color: var(--accent);
+  color: var(--sidebar-selected-icon);
 }
 
 .nav-item :global(.badge) {
@@ -82,7 +89,7 @@
   position: relative;
   padding-top: var(--space-10);
   margin-top: auto;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--sidebar-border);
 }
 
 .server-picker-button {
@@ -93,7 +100,7 @@
   padding: var(--space-8) var(--space-10);
   font-size: var(--text-base);
   font-weight: var(--weight-medium);
-  color: var(--text-secondary);
+  color: var(--sidebar-text);
   cursor: pointer;
   background: transparent;
   border: 0;
@@ -102,8 +109,8 @@
 }
 
 .server-picker-button:hover {
-  color: var(--text);
-  background: var(--hover);
+  color: var(--sidebar-text);
+  background: var(--sidebar-hover);
 }
 
 .server-picker-text {
@@ -144,11 +151,11 @@
   gap: var(--space-10);
   align-items: center;
   line-height: 1.4;
-  color: var(--text-faint);
+  color: var(--sidebar-muted);
 }
 
 .server-picker-button > :global(.icon):last-child {
-  color: var(--text-faint);
+  color: var(--sidebar-muted);
 }
 
 .content {
@@ -160,7 +167,7 @@
 }
 
 .nav-item:active {
-  background: var(--accent-soft);
+  background: var(--sidebar-selected);
 }
 
 .connecting-view {
@@ -268,7 +275,7 @@
       gap: var(--space-8);
       align-items: center;
       padding: calc(var(--space-6) + env(safe-area-inset-top)) var(--space-10) var(--space-6);
-      background: var(--surface);
+      background: var(--titlebar);
       border-bottom: 1px solid var(--border);
     }
 

@@ -95,7 +95,7 @@ export function applyTheme(preference: ThemePreference) {
     (preference === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
   document.documentElement.dataset.theme = dark ? "dark" : "light";
 
-  const surface = getComputedStyle(document.documentElement).getPropertyValue("--surface").trim();
+  const surface = getComputedStyle(document.documentElement).getPropertyValue("--titlebar").trim();
   if (surface) {
     document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => {
       meta.setAttribute("content", surface);

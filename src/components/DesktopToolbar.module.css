@@ -6,7 +6,7 @@
   justify-content: space-between;
   height: 52px;
   padding: 0 var(--space-12);
-  background: var(--surface);
+  background: var(--titlebar);
   border-bottom: 1px solid var(--border);
   -webkit-app-region: drag;
 }
@@ -33,8 +33,8 @@
 
 .toolbar :global(.icon-button),
 .toolbar :global(.select) {
-  background: var(--hover);
-  border: 0;
+  background: var(--input);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: none;
 }
@@ -42,7 +42,7 @@
 .toolbar :global(.icon-button):hover,
 .toolbar :global(.select):hover,
 .toolbar :global(button.select[aria-expanded="true"]) {
-  background: var(--neutral-soft);
+  background: var(--input-hover);
   box-shadow: none;
 }
 

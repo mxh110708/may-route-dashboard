@@ -93,7 +93,7 @@
   left: 0;
   z-index: var(--z-menu);
   padding: var(--space-6);
-  background: var(--card);
+  background: var(--overlay);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-overlay);
@@ -461,15 +461,16 @@ a.nav-line {
   white-space: nowrap;
   text-decoration: none;
   cursor: pointer;
-  background: var(--card);
-  border: 1px solid var(--border);
+  background: var(--button);
+  border: 1px solid var(--button-border);
   border-radius: var(--radius-control);
   box-shadow: var(--shadow-control);
   transition: background var(--transition-fast), border-color var(--transition-fast), opacity var(--transition-fast);
 }
 
-.button:hover {
-  background: var(--inset);
+.button:hover:not(:disabled) {
+  background: var(--button-hover);
+  border-color: var(--border-strong);
 }
 
 .button:disabled {
@@ -483,7 +484,7 @@ a.nav-line {
   border-color: transparent;
 }
 
-.button.primary:hover {
+.button.primary:hover:not(:disabled) {
   background: var(--accent-strong);
 }
 
@@ -491,7 +492,7 @@ a.nav-line {
   color: var(--danger);
 }
 
-.button.danger:hover {
+.button.danger:hover:not(:disabled) {
   background: var(--danger-soft);
   border-color: transparent;
 }
@@ -500,15 +501,15 @@ a.nav-line {
   background: var(--accent-soft);
 }
 
-.button:active {
-  background: var(--inset);
+.button:active:not(:disabled) {
+  background: var(--button-hover);
 }
 
-.button.primary:active {
+.button.primary:active:not(:disabled) {
   background: var(--accent-strong);
 }
 
-.button.danger:active {
+.button.danger:active:not(:disabled) {
   background: var(--danger-soft);
 }
 
@@ -581,9 +582,9 @@ a.nav-line {
 }
 
 .segmented button.active {
-  color: var(--text);
-  background: var(--card);
-  box-shadow: 0 1px 3px rgb(0 0 0 / 10%);
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+  box-shadow: var(--shadow-control);
 }
 
 .segmented button:disabled {
@@ -671,11 +672,16 @@ a.nav-line {
   padding: 0 var(--space-12);
   font-size: var(--text-base);
   color: var(--text);
-  background: var(--card);
-  border: 1px solid var(--border);
+  background: var(--input);
+  border: 1px solid var(--input-border);
   border-radius: var(--radius-control);
   box-shadow: var(--shadow-control);
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.input:hover:not(:disabled, :focus-visible), .select:hover:not(:disabled, :focus-visible) {
+  background-color: var(--input-hover);
+  border-color: var(--border-strong);
 }
 
 .select {
@@ -718,7 +724,7 @@ button.select {
 }
 
 button.select[aria-expanded="true"] {
-  background: var(--inset);
+  background: var(--input-hover);
   border-color: var(--border-strong);
 }
 
@@ -798,6 +804,7 @@ button.select:disabled {
 }
 
 .switch.on::after {
+  background: var(--on-accent);
   transform: translateX(15px);
 }
 
@@ -1063,7 +1070,7 @@ button.settings-row:focus-visible {
   overscroll-behavior: none;
   color: inherit;
   outline: none;
-  background: var(--bg);
+  background: var(--overlay);
   border: 0;
   border-inline-start: 1px solid var(--border);
   box-shadow: var(--shadow-overlay);
@@ -1116,7 +1123,7 @@ button.settings-row:focus-visible {
   overflow-y: auto;
   overscroll-behavior: none;
   color: inherit;
-  background: var(--bg);
+  background: var(--overlay);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-overlay);
