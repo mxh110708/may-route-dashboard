@@ -424,6 +424,7 @@ export interface DesktopHost {
     shareFile(fileName: string, data: Uint8Array | string): Promise<void>;
     showMainWindow(route?: string): void;
     closeTrayMenu(): void;
+    resizeTrayMenu?(size: { width: number; height: number }): Promise<void>;
     quit(): void;
   };
   onImportRemoteProfile(listener: (request: { name: string; url: string }) => void): () => void;

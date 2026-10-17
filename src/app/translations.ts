@@ -13,6 +13,9 @@ export const LANGUAGES: { value: Language; label: string }[] = [
 
 export const TRANSLATIONS = {
   "Back": { "zh-Hans": "返回", "zh-Hant": "返回", "fa": "بازگشت", "ru": "Назад" },
+  "More": { "zh-Hans": "更多", "zh-Hant": "更多", "fa": "بیشتر", "ru": "Ещё" },
+  "Start Service": { "zh-Hans": "启动服务", "zh-Hant": "啟動服務", "fa": "شروع سرویس", "ru": "Запустить службу" },
+  "Stop Service": { "zh-Hans": "停止服务", "zh-Hant": "停止服務", "fa": "توقف سرویس", "ru": "Остановить службу" },
   "Please wait": { "zh-Hans": "请稍候", "zh-Hant": "請稍候", "fa": "لطفاً صبر کنید", "ru": "Подождите" },
   "Disconnected": { "zh-Hans": "未连接", "zh-Hant": "未連線", "fa": "قطع اتصال", "ru": "Нет соединения" },
   "Interface font": { "zh-Hans": "界面字体", "zh-Hant": "介面字型", "fa": "Interface font", "ru": "Interface font" },
