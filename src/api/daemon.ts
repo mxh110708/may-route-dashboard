@@ -331,6 +331,7 @@ export class DaemonApi {
           update(() => ({ outbounds: message.outbounds, loaded: true }));
         }
       },
+      false, true, true,
     );
 
     this.tailscale = new StreamStore<TailscaleData>(
@@ -340,6 +341,7 @@ export class DaemonApi {
           update(() => ({ endpoints: message.endpoints, loaded: true }));
         }
       },
+      false, true, true,
     );
 
     this.usbip = new StreamStore<UsbipData>(
@@ -356,6 +358,7 @@ export class DaemonApi {
           update(() => ({ servers: message.servers, loaded: true }));
         }
       },
+      false, true, true,
     );
 
     this.openConnect = new StreamStore<OpenConnectData>(

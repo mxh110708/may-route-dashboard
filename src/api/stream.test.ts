@@ -91,6 +91,47 @@ describe("StreamStore", () => {
     c();
   });
 
+  it("collects hidden non-replayable events without UI notifications and publishes once on return", async () => {
+    let receive!: (entry: number) => void;
+    let aborts = 0;
+    const store = new StreamStore<number[]>(() => [], async ({ signal, update }) => {
+      receive = entry => update(entries => entries.concat(entry));
+      signal.addEventListener("abort", () => { aborts++; });
+      await new Promise(() => {});
+    }, true, false);
+    const notify = vi.fn();
+    const unsubscribe = store.subscribe(notify);
+    await vi.advanceTimersByTimeAsync(0);
+    notify.mockClear();
+    receive(1);
+    setStreamsSuspended(true);
+    for (let entry = 2; entry <= 1000; entry++) receive(entry);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(aborts).toBe(0);
+    expect(notify).not.toHaveBeenCalled();
+    expect(store.getSnapshot().data).toHaveLength(1000);
+    setStreamsSuspended(false);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(store.getSnapshot().data[999]).toBe(1000);
+    unsubscribe();
+  });
+
+  it("releases authoritative caches on last unsubscribe without resetting a live reconnect", () => {
+    const store = new StreamStore(() => ["initial"], async ({ update }) => {
+      update(() => ["latest authoritative data"]);
+      await new Promise(() => {});
+    }, false, true, true);
+    const a = store.subscribe(() => {}), b = store.subscribe(() => {});
+    a();
+    expect(store.getSnapshot().data).toEqual(["latest authoritative data"]);
+    b();
+    expect(store.getSnapshot().data).toEqual(["initial"]);
+    const next = store.subscribe(() => {});
+    expect(store.getSnapshot().data).toEqual(["latest authoritative data"]);
+    next();
+  });
+
   it("preserves non-rebuildable history when its view leaves", () => {
     const store = new StreamStore(() => ["history"], async () => { await new Promise(() => {}); });
     store.subscribe(() => {})();

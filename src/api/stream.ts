@@ -52,9 +52,14 @@ export class StreamStore<T> {
   private wakeBackoff: (() => void) | null = null;
   private flushHandle: ReturnType<typeof setTimeout> | null = null;
   private readonly activityChanged = (suspended: boolean) => {
-    if (!this.pauseWhenHidden) return;
-    if (suspended) this.stop();
-    else if (this.listeners.size > 0) this.start();
+    if (suspended) {
+      if (this.flushHandle !== null) clearTimeout(this.flushHandle);
+      this.flushHandle = null;
+      if (this.pauseWhenHidden) this.stop();
+    } else if (this.listeners.size > 0) {
+      if (this.pauseWhenHidden) this.start();
+      this.scheduleNotification();
+    }
   };
 
   constructor(
@@ -62,6 +67,7 @@ export class StreamStore<T> {
     private runStream: (context: StreamContext<T>) => Promise<void>,
     private resetOnReconnect = false,
     private pauseWhenHidden = true,
+    private releaseWhenUnused = resetOnReconnect,
   ) {
     this.snapshot = { phase: "connecting", data: createInitial() };
   }
@@ -69,7 +75,7 @@ export class StreamStore<T> {
   subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener);
     if (this.listeners.size === 1) {
-      if (this.pauseWhenHidden) activityListeners.add(this.activityChanged);
+      activityListeners.add(this.activityChanged);
       if (!this.pauseWhenHidden || !streamsSuspended) this.start();
     }
     return () => {
@@ -79,7 +85,7 @@ export class StreamStore<T> {
         activityListeners.delete(this.activityChanged);
         // These stores already rebuild from an authoritative reset on the next
         // subscription. Do not retain a large unused connection table meanwhile.
-        if (this.resetOnReconnect) this.snapshot = { phase: "connecting", data: this.createInitial() };
+        if (this.releaseWhenUnused) this.snapshot = { phase: "connecting", data: this.createInitial() };
       }
     };
   };
@@ -102,7 +108,13 @@ export class StreamStore<T> {
 
   private setSnapshot(next: StreamSnapshot<T>) {
     this.snapshot = next;
-    if (this.flushHandle === null) {
+    this.scheduleNotification();
+  }
+
+  private scheduleNotification() {
+    // Non-replayable history keeps collecting while hidden, without rebuilding
+    // the React tree for every event. Publish its latest snapshot on return.
+    if (!streamsSuspended && this.listeners.size > 0 && this.flushHandle === null) {
       this.flushHandle = setTimeout(() => {
         this.flushHandle = null;
         for (const listener of this.listeners) {

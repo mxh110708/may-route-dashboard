@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 
 import {
   loadServersState,
@@ -52,26 +52,26 @@ import { ToolbarSlotsProvider } from "./components/PageHeader";
 import { Brand, Button, Dialog, IconButton, Spinner, StateDot } from "./components/ui";
 import { SSH_DEFAULT_TERMINAL_TYPE, SSH_DEFAULT_USERNAME } from "./lib/tailscaleSSH";
 import { loadStoredString, saveStoredString } from "./lib/storage";
-import { ConnectionErrorView } from "./views/ConnectionErrorView";
+import { ConnectionErrorView } from "./views/DeferredViews";
 import { ConnectionsView } from "./views/ConnectionsView";
 import { DesktopSetupView } from "./views/DesktopSetupView";
 import {
   CrashReportDetailView,
   CrashReportFileView,
   CrashReportListView,
-} from "./views/CrashReportsView";
+} from "./views/DeferredViews";
 import { GroupsView } from "./views/GroupsView";
 import { LogsView } from "./views/LogsView";
 import {
   OOMReportDetailView,
   OOMReportFileView,
   OOMReportListView,
-} from "./views/OOMReportsView";
+} from "./views/DeferredViews";
 import {
   PowerReportDetailView,
   PowerReportFileView,
   PowerReportListView,
-} from "./views/PowerReportsView";
+} from "./views/DeferredViews";
 import {
   crashReportFileDisplayName,
   crashReportTitle,
@@ -81,7 +81,7 @@ import {
   powerReportTitle,
 } from "./views/reportFormat";
 import { OverviewView } from "./views/OverviewView";
-import { ProxyPortSettingsView } from "./views/ProxyPortSettingsView";
+import { ProxyPortSettingsView } from "./views/DeferredViews";
 import {
   ImportProfileFileDialog,
   ImportRemoteProfileDialog,
@@ -97,16 +97,14 @@ import {
   TerminalConfigurationView,
   TerminalThemeEditorView,
   TerminalThemePickerView,
-} from "./views/SettingsView";
+} from "./views/DeferredViews";
 import { SetupView } from "./views/SetupView";
 import { UpdatesGate } from "./views/UpdateViews";
-import { NetworkQualityView, STUNTestView, ToolsView } from "./views/ToolsView";
+import { NetworkQualityView, STUNTestView, ToolsView } from "./views/DeferredViews";
 import { TaildropNavBadge, TaildropSendRequestDialog, TaildropView } from "./views/TaildropView";
-import { TailscaleEndpointView } from "./views/TailscaleView";
+import { TailscaleEndpointView } from "./views/DeferredViews";
 import { TailscaleSSHView } from "./views/TerminalView";
-import { UsbipView } from "./views/UsbipView";
-import { OpenConnectView } from "./views/OpenConnectView";
-import { OpenVPNView } from "./views/OpenVPNView";
+import { UsbipView, OpenConnectView, OpenVPNView } from "./views/DeferredViews";
 import styles from "./App.module.css";
 import { cx } from "./lib/cx";
 import { useInterfaceTypography } from "./app/interfaceFont";
@@ -403,7 +401,9 @@ export function App(props: { desktop?: DesktopHost } = {}) {
   return (
     <I18nProvider>
       <DesktopHostContext.Provider value={desktop}>
-        {desktop !== null ? <DesktopApp host={desktop} /> : <WebApp />}
+        <Suspense fallback={<div className="page" aria-busy="true"><Spinner /></div>}>
+          {desktop !== null ? <DesktopApp host={desktop} /> : <WebApp />}
+        </Suspense>
         <GlobalErrorDialog />
       </DesktopHostContext.Provider>
     </I18nProvider>
@@ -884,6 +884,7 @@ function ShellContent(props: ShellProps & { onRetry: () => void }) {
 
   const mainContent = (
     <main className={styles.content}>
+      <Suspense fallback={<div className="page" aria-busy="true"><Spinner /></div>}>
       {route.page === "overview" && <OverviewView />}
       {route.page === "groups" && <GroupsView />}
       {route.page === "connections" && <ConnectionsView />}
@@ -947,6 +948,7 @@ function ShellContent(props: ShellProps & { onRetry: () => void }) {
       {route.page === "settings/servers" && (
         <ServersView serversState={props.serversState} onServersChange={props.onServersChange} />
       )}
+      </Suspense>
     </main>
   );
 
