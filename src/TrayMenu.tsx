@@ -31,8 +31,10 @@ function TrayMenuContent({ host }: { host: DesktopHost }) {
   const api = useMemo(() => new DaemonApi(TRAY_LOCAL_SERVER, language, host.transport), [host, language]);
   const connection = useDaemonConnection(host);
   const service = useStream(api.serviceStatus);
-  const groups = useStream(api.groups);
-  const routing = useStream(api.clashMode);
+  const status = service.data.status?.status ?? ServiceStatus_Type.IDLE;
+  const runningService = connection.phase === "connected" && status === ServiceStatus_Type.STARTED;
+  const groups = useStream(api.groups, runningService);
+  const routing = useStream(api.clashMode, runningService);
   const { profiles, selectedId, captureMode } = useDesktopProfiles(host);
   const [page, setPage] = useState<Page>("home");
   const [groupTag, setGroupTag] = useState("");
@@ -42,7 +44,6 @@ function TrayMenuContent({ host }: { host: DesktopHost }) {
   const panel = useRef<HTMLDivElement>(null);
   const menuItems = useRef<HTMLDivElement>(null);
   const error = useCurrentError();
-  const status = service.data.status?.status ?? ServiceStatus_Type.IDLE;
   const started = status === ServiceStatus_Type.STARTED;
   const transitioning = status === ServiceStatus_Type.STARTING || status === ServiceStatus_Type.STOPPING;
   const connected = connection.phase === "connected";

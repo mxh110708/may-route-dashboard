@@ -34,6 +34,16 @@ export function isTerminalCode(code: Code | undefined): boolean {
   );
 }
 
+let streamsSuspended = false;
+const activityListeners = new Set<(suspended: boolean) => void>();
+
+/** Desktop-only visibility control; a hidden page retains component/input state. */
+export function setStreamsSuspended(suspended: boolean): void {
+  if (streamsSuspended === suspended) return;
+  streamsSuspended = suspended;
+  for (const listener of [...activityListeners]) listener(suspended);
+}
+
 export class StreamStore<T> {
   private listeners = new Set<() => void>();
   private snapshot: StreamSnapshot<T>;
@@ -41,11 +51,17 @@ export class StreamStore<T> {
   private skipBackoff = false;
   private wakeBackoff: (() => void) | null = null;
   private flushHandle: ReturnType<typeof setTimeout> | null = null;
+  private readonly activityChanged = (suspended: boolean) => {
+    if (!this.pauseWhenHidden) return;
+    if (suspended) this.stop();
+    else if (this.listeners.size > 0) this.start();
+  };
 
   constructor(
     private createInitial: () => T,
     private runStream: (context: StreamContext<T>) => Promise<void>,
     private resetOnReconnect = false,
+    private pauseWhenHidden = true,
   ) {
     this.snapshot = { phase: "connecting", data: createInitial() };
   }
@@ -53,12 +69,17 @@ export class StreamStore<T> {
   subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener);
     if (this.listeners.size === 1) {
-      this.start();
+      if (this.pauseWhenHidden) activityListeners.add(this.activityChanged);
+      if (!this.pauseWhenHidden || !streamsSuspended) this.start();
     }
     return () => {
       this.listeners.delete(listener);
       if (this.listeners.size === 0) {
         this.stop();
+        activityListeners.delete(this.activityChanged);
+        // These stores already rebuild from an authoritative reset on the next
+        // subscription. Do not retain a large unused connection table meanwhile.
+        if (this.resetOnReconnect) this.snapshot = { phase: "connecting", data: this.createInitial() };
       }
     };
   };
@@ -70,10 +91,11 @@ export class StreamStore<T> {
     this.wakeBackoff?.();
   };
 
-  reconnectNow = (): void => {
-    if (this.listeners.size === 0) {
+  reconnectNow = (preserveActive = false): void => {
+    if (this.listeners.size === 0 || (this.pauseWhenHidden && streamsSuspended)) {
       return;
     }
+    if (preserveActive && this.controller !== null && this.snapshot.phase === "active") return;
     this.stop();
     this.start();
   };
@@ -91,6 +113,7 @@ export class StreamStore<T> {
   }
 
   private start() {
+    if ((this.pauseWhenHidden && streamsSuspended) || this.controller !== null) return;
     const controller = new AbortController();
     this.controller = controller;
     this.skipBackoff = false;
@@ -119,6 +142,7 @@ export class StreamStore<T> {
         await this.runStream({
           signal,
           update: (updater) => {
+            if (signal.aborted) return;
             attempt = 0;
             this.setSnapshot({ phase: "active", data: updater(this.snapshot.data) });
           },
@@ -166,6 +190,8 @@ export class StreamStore<T> {
   }
 }
 
-export function useStream<T>(store: StreamStore<T>): StreamSnapshot<T> {
-  return useSyncExternalStore(store.subscribe, store.getSnapshot);
+const subscribeToNothing = () => () => {};
+
+export function useStream<T>(store: StreamStore<T>, enabled = true): StreamSnapshot<T> {
+  return useSyncExternalStore(enabled ? store.subscribe : subscribeToNothing, store.getSnapshot);
 }

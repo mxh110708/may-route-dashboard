@@ -1,7 +1,7 @@
 import { Code, ConnectError } from "@connectrpc/connect";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { StreamStore } from "./stream";
+import { setStreamsSuspended, StreamStore } from "./stream";
 
 describe("StreamStore", () => {
   beforeEach(() => {
@@ -9,8 +9,92 @@ describe("StreamStore", () => {
   });
 
   afterEach(() => {
+    setStreamsSuspended(false);
     vi.unstubAllGlobals();
     vi.useRealTimers();
+  });
+
+  it("hidden desktop views stop streams, retain state and ignore late frames until resumed", async () => {
+    let starts = 0, aborts = 0;
+    let lateUpdate!: () => void;
+    const store = new StreamStore<number>(() => 0, async ({ signal, update }) => {
+      starts += 1;
+      update(() => starts);
+      lateUpdate = () => update(() => 999);
+      signal.addEventListener("abort", () => { aborts += 1; });
+      await new Promise(() => {});
+    });
+    const unsubscribe = store.subscribe(() => {});
+    expect(store.getSnapshot().data).toBe(1);
+    setStreamsSuspended(true);
+    expect(aborts).toBe(1);
+    lateUpdate();
+    store.reconnectNow();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(starts).toBe(1);
+    expect(store.getSnapshot().data).toBe(1);
+    setStreamsSuspended(false);
+    expect(starts).toBe(2);
+    expect(store.getSnapshot().data).toBe(2);
+    unsubscribe();
+  });
+
+  it("views first mounted while hidden do not start network streams until visible", () => {
+    let starts = 0;
+    setStreamsSuspended(true);
+    const store = new StreamStore<number>(() => 0, async () => { starts += 1; await new Promise(() => {}); });
+    const unsubscribe = store.subscribe(() => {});
+    expect(starts).toBe(0);
+    setStreamsSuspended(false);
+    expect(starts).toBe(1);
+    unsubscribe();
+  });
+
+  it("keeps non-replayable history subscribed while its existing view is hidden", () => {
+    let starts = 0, aborts = 0;
+    let receive!: (entry: number) => void;
+    const store = new StreamStore<number[]>(() => [], async ({ signal, update }) => {
+      starts++;
+      receive = (entry) => update((entries) => entries.concat(entry));
+      signal.addEventListener("abort", () => { aborts++; });
+      await new Promise(() => {});
+    }, true, false);
+    const unsubscribe = store.subscribe(() => {});
+    receive(1);
+    setStreamsSuspended(true);
+    receive(2);
+    setStreamsSuspended(false);
+    store.reconnectNow(true);
+    expect(store.getSnapshot().data).toEqual([1, 2]);
+    expect(starts).toBe(1);
+    expect(aborts).toBe(0);
+    store.reconnectNow();
+    expect(starts).toBe(2);
+    expect(aborts).toBe(1);
+    unsubscribe();
+    expect(aborts).toBe(2);
+    expect(store.getSnapshot().data).toEqual([]);
+  });
+
+  it("releases unused rebuildable tables only after their last subscriber leaves", () => {
+    const store = new StreamStore(() => new Map<number, string>(), async ({ update }) => {
+      update(() => new Map([[1, "retained connection details"]]));
+      await new Promise(() => {});
+    }, true);
+    const a = store.subscribe(() => {}), b = store.subscribe(() => {});
+    a();
+    expect(store.getSnapshot().data.size).toBe(1);
+    b();
+    expect(store.getSnapshot().data.size).toBe(0);
+    const c = store.subscribe(() => {});
+    expect(store.getSnapshot().data.get(1)).toBe("retained connection details");
+    c();
+  });
+
+  it("preserves non-rebuildable history when its view leaves", () => {
+    const store = new StreamStore(() => ["history"], async () => { await new Promise(() => {}); });
+    store.subscribe(() => {})();
+    expect(store.getSnapshot().data).toEqual(["history"]);
   });
 
   it("starts the stream on the first subscriber and publishes updates", async () => {

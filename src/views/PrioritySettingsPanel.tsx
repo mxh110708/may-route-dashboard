@@ -4,6 +4,7 @@ import { Button, Dialog, Field, Select, Switch } from "../components/ui";
 import { movePriorityNode, priorityDraftError } from "./prioritySettingsModel";
 import { priorityStatus } from "./priorityStatus";
 import { Icon } from "../components/Icon";
+import { createVisiblePoller } from "../lib/visiblePoller";
 import styles from "./PrioritySettingsPanel.module.css";
 
 type NumberKey = Exclude<keyof DesktopPrioritySettings, "enabled" | "group" | "order">;
@@ -46,16 +47,20 @@ export function PrioritySettingsPanel({ host }: { host: DesktopHost }) {
     if (!api.priorityState) return;
     let stale = false;
     let request = 0;
-    const poll = () => {
+    const poll = async () => {
       if (mutating.current) return;
       const stamp = generation.current;
       const current = ++request;
-      api.priorityState!().then(value => { if (!stale && current === request && stamp === generation.current) { if (dirty) setView(value); else accept(value); } }).catch(reason => { if (!stale && current === request && stamp === generation.current) setError(String(reason)); });
+      try {
+        const value = await api.priorityState!();
+        if (!stale && !document.hidden && current === request && stamp === generation.current) { if (dirty) setView(value); else accept(value); }
+      } catch (reason) {
+        if (!stale && !document.hidden && current === request && stamp === generation.current) setError(String(reason));
+      }
     };
-    poll();
-    const timer = setInterval(poll, 5000);
-    const unsubscribe = api.onChanged(poll);
-    return () => { stale = true; clearInterval(timer); unsubscribe(); };
+    const poller = createVisiblePoller(poll, 5000);
+    const unsubscribe = api.onChanged(poller.refresh);
+    return () => { stale = true; poller.dispose(); unsubscribe(); };
   }, [api, dirty]);
   if (!api.priorityState || !api.prioritySave || !api.priorityApply) return null;
   const nodes = view?.groups.find(group => group.tag === draft?.group)?.nodes ?? [];

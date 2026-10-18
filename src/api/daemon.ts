@@ -319,6 +319,9 @@ export class DaemonApi {
         }
       },
       true,
+      // The core may GC its closed-connection cache. A mounted connection view
+      // must keep receiving history while hidden; a resubscribe cannot recover it.
+      false,
     );
 
     this.outbounds = new StreamStore<OutboundsData>(
@@ -405,13 +408,13 @@ export class DaemonApi {
     this.openVPN.retryNow();
   }
 
-  reconnectNow(): void {
+  reconnectNow(preserveConnectionHistory = false): void {
     this.serviceStatus.reconnectNow();
     this.status.reconnectNow();
     this.groups.reconnectNow();
     this.clashMode.reconnectNow();
     this.logs.reconnectNow();
-    this.connections.reconnectNow();
+    this.connections.reconnectNow(preserveConnectionHistory);
     this.outbounds.reconnectNow();
     this.tailscale.reconnectNow();
     this.usbip.reconnectNow();

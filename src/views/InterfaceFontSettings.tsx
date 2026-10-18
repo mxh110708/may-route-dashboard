@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import type { DesktopHost } from "../app/desktop";
 import { showError } from "../app/errorStore";
 import { useI18n } from "../app/i18n";
-import { loadInterfaceFontPreference, prepareInterfaceFont } from "../app/interfaceFont";
+import { discardUnselectedInterfaceFont, loadInterfaceFontPreference, prepareInterfaceFont } from "../app/interfaceFont";
 import { Button, Select } from "../components/ui";
 import { watchStoredValues } from "../lib/storage";
 
@@ -23,7 +23,8 @@ export function InterfaceFontSettings({ host }: { host: DesktopHost }) {
   const select = async (id: string) => {
     // Chromium must actually decode the font before changing the saved choice.
     await prepareInterfaceFont(id, library);
-    await library.select(id);
+    try { await library.select(id); }
+    catch (error) { discardUnselectedInterfaceFont(id); throw error; }
     setSelected(id);
   };
   const options = [

@@ -4,6 +4,7 @@ import { navigate } from "../app/context";
 import { priorityOverviewPath } from "../app/priorityNavigation";
 import { Icon } from "../components/Icon";
 import { priorityStatus } from "./priorityStatus";
+import { createVisiblePoller } from "../lib/visiblePoller";
 import styles from "./PrioritySummaryCard.module.css";
 
 export function PrioritySummaryCard({ host }: { host: DesktopHost }) {
@@ -13,19 +14,16 @@ export function PrioritySummaryCard({ host }: { host: DesktopHost }) {
   useEffect(() => {
     if (!read) return;
     let stopped = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
     const refresh = async () => {
       try {
         const next = await read();
-        if (!stopped) { setView(next); setFailed(false); }
+        if (!stopped && !document.hidden) { setView(next); setFailed(false); }
       } catch {
-        if (!stopped) { setView(null); setFailed(true); }
-      } finally {
-        if (!stopped) timer = setTimeout(() => void refresh(), 5000);
+        if (!stopped && !document.hidden) { setView(null); setFailed(true); }
       }
     };
-    void refresh();
-    return () => { stopped = true; clearTimeout(timer); };
+    const poller = createVisiblePoller(refresh, 5000);
+    return () => { stopped = true; poller.dispose(); };
   }, [read]);
   if (!read) return null;
   return <PrioritySummaryContent view={view} failed={failed} onOpen={() => navigate(priorityOverviewPath)} />;

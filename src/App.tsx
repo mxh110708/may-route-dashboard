@@ -703,7 +703,7 @@ function ShellContent(props: ShellProps & { onRetry: () => void }) {
   const { t, language } = useI18n();
   const route = props.route;
   const serviceStatus = useStream(api.serviceStatus);
-  const groups = useStream(api.groups);
+  const groups = useStream(api.groups, serviceStatus.data.status?.status === ServiceStatus_Type.STARTED);
   const [menuOpen, setMenuOpen] = useState(false);
   const [leadSlot, setLeadSlot] = useState<HTMLElement | null>(null);
   const [endSlot, setEndSlot] = useState<HTMLElement | null>(null);
@@ -746,16 +746,19 @@ function ShellContent(props: ShellProps & { onRetry: () => void }) {
   );
 
   useEffect(() => {
+    const becameVisible = () => {
+      if (!document.hidden) api.reconnectNow(true);
+    };
     const kick = () => {
       if (!document.hidden) {
         api.reconnectNow();
       }
     };
-    document.addEventListener("visibilitychange", kick);
+    document.addEventListener("visibilitychange", becameVisible);
     window.addEventListener("pageshow", kick);
     window.addEventListener("online", kick);
     return () => {
-      document.removeEventListener("visibilitychange", kick);
+      document.removeEventListener("visibilitychange", becameVisible);
       window.removeEventListener("pageshow", kick);
       window.removeEventListener("online", kick);
     };

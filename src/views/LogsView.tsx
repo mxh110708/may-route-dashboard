@@ -73,6 +73,7 @@ export function LogsView() {
   const togglePause = () => {
     if (paused) {
       setPaused(false);
+      setFrozen([]);
     } else {
       setFrozen(logs.data.entries);
       setPaused(true);

@@ -17,8 +17,18 @@ export function useApi(): DaemonApi {
 export function useNow(intervalMs = 1000): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), intervalMs);
-    return () => clearInterval(timer);
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const syncVisibility = () => {
+      clearInterval(timer);
+      timer = undefined;
+      if (!document.hidden) {
+        setNow(Date.now());
+        timer = setInterval(() => setNow(Date.now()), intervalMs);
+      }
+    };
+    syncVisibility();
+    document.addEventListener("visibilitychange", syncVisibility);
+    return () => { clearInterval(timer); document.removeEventListener("visibilitychange", syncVisibility); };
   }, [intervalMs]);
   return now;
 }
