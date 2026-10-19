@@ -8,7 +8,7 @@ import { showError } from "./errorStore";
 export const INTERFACE_FONT_KEY = "interface-font";
 const DEFAULT_FAMILY = '"Schibsted Grotesk Variable", "Apple Color Emoji", "Noto Color Emoji", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
 const loadedFonts = new Map<string, Promise<string>>();
-const fontFaces = new Map<string, FontFace>();
+const fontFaces = new Map<string, FontFace[]>();
 
 export function loadInterfaceFontPreference(): string {
   const id = loadStoredString(INTERFACE_FONT_KEY);
@@ -22,15 +22,27 @@ export async function prepareInterfaceFont(id: string, fonts?: DesktopHost["font
   if (!loading) {
     loading = (async () => {
       const family = id === "wenkai" ? "MXH WenKai" : "MXH-" + id;
-      const source = id === "wenkai" ? `url("${wenkaiURL}")` :
-        fontDataView(await fonts!.data(id));
-      const face = new FontFace(family, source);
-      await face.load();
-      fontFaces.set(id, face);
+      if (id === "wenkai") {
+        const [{ WENKAI_PARTS }, { createBundledInterfaceFont }] = await Promise.all([
+          import("../assets/fonts/wenkai/parts"), import("./bundledInterfaceFont"),
+        ]);
+        const bundle = createBundledInterfaceFont(family, WENKAI_PARTS, wenkaiURL, (face, previous) => {
+          if (fontFaces.get(id) !== bundle.faces) return;
+          for (const old of previous) document.fonts.delete(old);
+          if (loadInterfaceFontPreference() === id) document.fonts.add(face);
+        }, showError, () => fontFaces.get(id) === bundle.faces && loadInterfaceFontPreference() === id);
+        fontFaces.set(id, bundle.faces);
+        try { await bundle.ready; }
+        catch (error) { if (fontFaces.get(id) === bundle.faces) fontFaces.delete(id); throw error; }
+      } else {
+        const face = new FontFace(family, fontDataView(await fonts!.data(id)));
+        await face.load();
+        fontFaces.set(id, [face]);
+      }
       return `"${family}", ${DEFAULT_FAMILY}`;
     })();
     loadedFonts.set(id, loading);
-    void loading.catch(() => loadedFonts.delete(id));
+    void loading.catch(() => { if (loadedFonts.get(id) === loading) loadedFonts.delete(id); });
   }
   return loading;
 }
@@ -44,19 +56,18 @@ export function fontDataView(data: Uint8Array): Uint8Array<ArrayBuffer> {
 
 export function discardUnselectedInterfaceFont(id: string): void {
   if (id === loadInterfaceFontPreference()) return;
-  const face = fontFaces.get(id);
-  if (face) document.fonts.delete(face);
+  for (const face of fontFaces.get(id) ?? []) document.fonts.delete(face);
   fontFaces.delete(id);
   loadedFonts.delete(id);
 }
 
 export function applyPreparedInterfaceFont(id: string, family: string): void {
-  const face = fontFaces.get(id);
-  if (face) document.fonts.add(face);
+  for (const face of fontFaces.get(id) ?? []) document.fonts.add(face);
   document.documentElement.style.setProperty("--font-sans", family);
   for (const [key, previous] of fontFaces) {
     if (key === id) continue;
-    document.fonts.delete(previous); fontFaces.delete(key); loadedFonts.delete(key);
+    for (const face of previous) document.fonts.delete(face);
+    fontFaces.delete(key); loadedFonts.delete(key);
   }
 }
 

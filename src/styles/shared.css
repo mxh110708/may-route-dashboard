@@ -444,10 +444,6 @@ a.nav-line {
   color: var(--text-faint);
 }
 
-[dir="rtl"] .nav-line > .icon:last-child {
-  transform: scaleX(-1);
-}
-
 .button {
   display: inline-flex;
   gap: var(--space-8);
@@ -695,10 +691,6 @@ a.nav-line {
   background-size: 14px;
 }
 
-[dir="rtl"] .select {
-  background-position: left 8px center;
-}
-
 .select.inline {
   width: auto;
   min-width: 130px;
@@ -806,10 +798,6 @@ button.select:disabled {
 .switch.on::after {
   background: var(--on-accent);
   transform: translateX(15px);
-}
-
-[dir="rtl"] .switch.on::after {
-  transform: translateX(-15px);
 }
 
 .search-input {
@@ -1081,10 +1069,6 @@ button.settings-row:focus-visible {
   background: var(--scrim);
 }
 
-[dir="rtl"] .drawer {
-  animation-name: slide-in-rtl;
-}
-
 .drawer h3 {
   display: flex;
   gap: var(--space-8);
@@ -1213,15 +1197,6 @@ button.settings-row:focus-visible {
 .hint {
   font-size: var(--text-sm);
   color: var(--text-faint);
-}
-
-[dir="rtl"] .data-line .value, [dir="rtl"] .server-row-url, [dir="rtl"] .peer-address, [dir="rtl"] .copy-value {
-  direction: ltr;
-  unicode-bidi: isolate;
-}
-
-[dir="rtl"] .back-button > .icon, [dir="rtl"] .settings-row-chevron .icon, [dir="rtl"] .nav-row > .icon:last-child, [dir="rtl"] .submenu-arrow .icon {
-  transform: scaleX(-1);
 }
 
 .copy-value {

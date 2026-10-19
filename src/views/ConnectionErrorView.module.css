@@ -82,12 +82,3 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-[dir="rtl"] .connection-error-url {
-  direction: ltr;
-  unicode-bidi: isolate;
-}
-
-[dir="rtl"] .connection-error-switch-item :global(.settings-row-chevron) :global(.icon) {
-  transform: scaleX(-1);
-}

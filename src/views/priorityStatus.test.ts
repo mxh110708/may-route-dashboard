@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DesktopPriorityState } from "../app/desktop";
-import { priorityStatus } from "./priorityStatus";
+import { compactPrioritySummary, priorityStatus, samePrioritySummary } from "./priorityStatus";
 
 const view: DesktopPriorityState = {
   settings: { enabled: true, group: "Entry", order: [], failureRounds: 3, backupSuccessRounds: 2, recoverySuccessRounds: 3, recoveryStableMs: 120000, failbackCooldownMs: 60000, probeTimeoutMs: 8000, healthyIntervalMs: 30000, failureIntervalMs: 10000 },
@@ -10,6 +10,20 @@ const view: DesktopPriorityState = {
 };
 
 describe("priority running status", () => {
+  it("drops editor-only lists and retains unchanged summary identity without hiding changes", () => {
+    const compact = compactPrioritySummary(view);
+    expect(Object.keys(compact.settings)).toEqual(["group"]);
+    expect(compact).not.toHaveProperty("groups");
+    expect(compact).not.toHaveProperty("path");
+    expect(samePrioritySummary(compact, compactPrioritySummary(view))).toBe(true);
+    expect(samePrioritySummary(null, compact)).toBe(false);
+    for (const key of ["running", "directMode", "active", "monitoredSelected", "needsReload"] as const) {
+      expect(samePrioritySummary(compact, { ...compact, [key]: !compact[key] })).toBe(false);
+    }
+    expect(samePrioritySummary(compact, { ...compact, selected: "other" })).toBe(false);
+    expect(samePrioritySummary(compact, { ...compact, preferred: "other" })).toBe(false);
+    expect(samePrioritySummary(compact, { ...compact, settings: { group: "other" } })).toBe(false);
+  });
   it("describes manual preference without claiming it is unhealthy", () => {
     expect(priorityStatus({ ...view, selected: "manual", preferred: "manual" }).label).toBe("自动监测中");
   });

@@ -64,11 +64,6 @@
   font-weight: var(--weight-medium);
 }
 
-[dir="rtl"] .metric, [dir="rtl"] .metric-sub {
-  direction: ltr;
-  unicode-bidi: isolate;
-}
-
 @media (max-width: 360px) {
   .card-grid {
       grid-template-columns: 1fr;

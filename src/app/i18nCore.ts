@@ -1,15 +1,18 @@
 import { loadStoredString, removeStoredValue, saveStoredString } from "../lib/storage";
-import { LANGUAGES, type Language } from "./translations";
+import type { Language } from "./translations";
 
 export type LanguagePreference = "auto" | Language;
 
 const LANGUAGE_KEY = "language";
 
 export function loadLanguagePreference(): LanguagePreference {
-  const value = loadStoredString(LANGUAGE_KEY);
-  if (value && LANGUAGES.some((language) => language.value === value)) {
-    return value as Language;
-  }
+  return normalizeLanguagePreference(loadStoredString(LANGUAGE_KEY));
+}
+
+export function normalizeLanguagePreference(value: unknown): LanguagePreference {
+  if (value === "en" || value === "zh-Hans") return value;
+  if (value === "zh-Hant") return "zh-Hans";
+  if (value === "fa" || value === "ru") return "en";
   return "auto";
 }
 
@@ -21,19 +24,11 @@ export function saveLanguagePreference(preference: LanguagePreference): void {
   }
 }
 
-export function detectSystemLanguage(): Language {
-  for (const tag of navigator.languages ?? [navigator.language]) {
+export function detectSystemLanguage(tags: readonly string[] = navigator.languages ?? [navigator.language]): Language {
+  for (const tag of tags) {
     const lower = tag.toLowerCase();
-    if (lower.startsWith("zh")) {
-      return /hant|tw|hk|mo/.test(lower) ? "zh-Hant" : "zh-Hans";
-    }
-    if (lower.startsWith("fa")) {
-      return "fa";
-    }
-    if (lower.startsWith("ru")) {
-      return "ru";
-    }
-    if (lower.startsWith("en")) {
+    if (/^zh(?:[-_]|$)/u.test(lower)) return "zh-Hans";
+    if (/^en(?:[-_]|$)/u.test(lower)) {
       return "en";
     }
   }

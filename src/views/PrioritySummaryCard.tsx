@@ -1,23 +1,26 @@
 import { useEffect, useState } from "react";
-import type { DesktopHost, DesktopPriorityState } from "../app/desktop";
+import type { DesktopHost, DesktopPrioritySummary } from "../app/desktop";
 import { navigate } from "../app/context";
 import { priorityOverviewPath } from "../app/priorityNavigation";
 import { Icon } from "../components/Icon";
-import { priorityStatus } from "./priorityStatus";
+import { compactPrioritySummary, priorityStatus, samePrioritySummary } from "./priorityStatus";
 import { createVisiblePoller } from "../lib/visiblePoller";
 import styles from "./PrioritySummaryCard.module.css";
 
 export function PrioritySummaryCard({ host }: { host: DesktopHost }) {
-  const read = host.profiles.priorityState;
-  const [view, setView] = useState<DesktopPriorityState | null>(null);
+  const read = host.profiles.prioritySummary ?? host.profiles.priorityState;
+  const [view, setView] = useState<DesktopPrioritySummary | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     if (!read) return;
     let stopped = false;
     const refresh = async () => {
       try {
-        const next = await read();
-        if (!stopped && !document.hidden) { setView(next); setFailed(false); }
+        const next = compactPrioritySummary(await read());
+        if (!stopped && !document.hidden) {
+          setView(current => samePrioritySummary(current, next) ? current : next);
+          setFailed(false);
+        }
       } catch {
         if (!stopped && !document.hidden) { setView(null); setFailed(true); }
       }
@@ -30,7 +33,7 @@ export function PrioritySummaryCard({ host }: { host: DesktopHost }) {
 }
 
 export function PrioritySummaryContent({ view, failed, onOpen }: {
-  view: DesktopPriorityState | null;
+  view: DesktopPrioritySummary | null;
   failed: boolean;
   onOpen: () => void;
 }) {

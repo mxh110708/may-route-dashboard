@@ -222,7 +222,7 @@
     --window-controls-text 0.18s ease;
 }
 
-[data-scrim="drawer"]:not([dir="rtl"]) {
+[data-scrim="drawer"] {
   --window-controls-surface: var(--bg);
   --window-controls-text: var(--text);
 }
@@ -499,13 +499,6 @@ a:hover {
   from {
     opacity: 0;
     transform: translateX(24px);
-  }
-}
-
-@keyframes slide-in-rtl {
-  from {
-    opacity: 0;
-    transform: translateX(-24px);
   }
 }
 

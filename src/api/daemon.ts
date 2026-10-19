@@ -6,7 +6,6 @@ import { createGrpcWebTransport } from "@connectrpc/connect-web";
 import { MIN_API_VERSION } from "../app/capabilities";
 import {
   Connection,
-  ConnectionEventType,
   DeprecatedWarning,
   Group,
   GroupItem,
@@ -27,10 +26,9 @@ import {
 } from "./bidirectional";
 import { serverConnectUrl, type Server } from "./config";
 import { StreamStore } from "./stream";
+import type { PagedTable } from "./retainedData";
 
 export const STATUS_HISTORY_LENGTH = 30;
-const LOG_MAX_ENTRIES = 3000;
-const CLOSED_CONNECTIONS_MAX = 1000;
 
 export interface ServiceStatusData {
   status: ServiceStatus | null;
@@ -74,7 +72,7 @@ export interface ConnectionRow {
 }
 
 export interface ConnectionsData {
-  rows: Map<string, ConnectionRow>;
+  rows: ReadonlyMap<string, ConnectionRow> | PagedTable<ConnectionRow>;
   loaded: boolean;
 }
 
@@ -163,15 +161,13 @@ export class DaemonApi {
     this.status = new StreamStore<StatusData>(
       () => ({ current: null, uplinkHistory: [], downlinkHistory: [] }),
       async ({ signal, update }) => {
+        const { appendStatus } = await import("./streamData");
+        if (signal.aborted) return;
         for await (const message of this.client.subscribeStatus(
           { interval: SUBSCRIPTION_INTERVAL },
           { signal },
         )) {
-          update((data) => ({
-            current: message,
-            uplinkHistory: appendHistory(data.uplinkHistory, Number(message.uplink)),
-            downlinkHistory: appendHistory(data.downlinkHistory, Number(message.downlink)),
-          }));
+          update((data) => appendStatus(data, message));
         }
       },
     );
@@ -200,10 +196,13 @@ export class DaemonApi {
       },
     );
 
+    let compactUnusedLogs = (data: LogsData): LogsData => data;
     this.logs = new StreamStore<LogsData>(
       () => ({ entries: [], defaultLevel: null }),
       async ({ signal, update }) => {
-
+        const { appendLogs, logLevel, compactLogs } = await import("./streamData");
+        if (signal.aborted) return;
+        compactUnusedLogs = compactLogs;
         let levelFetched = false;
         const fetchDefaultLevel = () => {
           const statusType = this.serviceStatus.getSnapshot().data.status?.status;
@@ -216,7 +215,7 @@ export class DaemonApi {
           }
           levelFetched = true;
           void this.client.getDefaultLogLevel({}, { signal }).then(
-            (defaultLevel) => update((data) => ({ ...data, defaultLevel: defaultLevel.level })),
+            (defaultLevel) => update((data) => logLevel(data, defaultLevel.level)),
             () => {
               levelFetched = false;
             },
@@ -229,94 +228,33 @@ export class DaemonApi {
               levelFetched = false;
               fetchDefaultLevel();
             }
-            update((data) => {
-              let entries = message.reset ? [] : data.entries;
-              const appended = message.messages.map((logMessage) => ({
-                id: this.logSequence++,
-                level: logMessage.level,
-                message: logMessage.message,
-              }));
-              entries = entries.concat(appended);
-              if (entries.length > LOG_MAX_ENTRIES) {
-                entries = entries.slice(entries.length - LOG_MAX_ENTRIES);
+            const sequence = this.logSequence;
+            this.logSequence += message.messages.length;
+            update((data) => appendLogs(data, (function* () {
+              for (let index = 0; index < message.messages.length; index++) {
+                const messageEntry = message.messages[index];
+                yield { id: sequence + index, level: messageEntry.level, message: messageEntry.message };
               }
-              return { ...data, entries };
-            });
+            })(), message.reset));
           }
         } finally {
           unsubscribeStatus();
         }
       },
+      false,
+      true,
+      // Preserve diagnostics even if the core is unavailable on the next visit.
+      (data) => compactUnusedLogs(data),
     );
 
     this.connections = new StreamStore<ConnectionsData>(
       () => ({ rows: new Map(), loaded: false }),
       async ({ signal, update }) => {
+        const { appendConnections } = await import("./streamData");
+        if (signal.aborted) return;
         for await (const message of this.client.subscribeConnections(
-          { interval: SUBSCRIPTION_INTERVAL },
-          { signal },
-        )) {
-          update((data) => {
-            const rows = message.reset ? new Map<string, ConnectionRow>() : new Map(data.rows);
-            for (const event of message.events) {
-              switch (event.type) {
-                case ConnectionEventType.CONNECTION_EVENT_NEW: {
-                  if (!event.connection) {
-                    break;
-                  }
-                  rows.set(event.id, {
-                    connection: event.connection,
-                    uplinkRate: 0,
-                    downlinkRate: 0,
-                    uplinkTotal: event.connection.uplinkTotal,
-                    downlinkTotal: event.connection.downlinkTotal,
-                    closedAt:
-                      event.connection.closedAt > 0n ? Number(event.connection.closedAt) : null,
-                  });
-                  break;
-                }
-                case ConnectionEventType.CONNECTION_EVENT_UPDATE: {
-                  const row = rows.get(event.id);
-                  if (!row) {
-                    break;
-                  }
-                  rows.set(event.id, {
-                    ...row,
-                    uplinkRate: Number(event.uplinkDelta),
-                    downlinkRate: Number(event.downlinkDelta),
-                    uplinkTotal: row.uplinkTotal + event.uplinkDelta,
-                    downlinkTotal: row.downlinkTotal + event.downlinkDelta,
-                  });
-                  break;
-                }
-                case ConnectionEventType.CONNECTION_EVENT_CLOSED: {
-                  const row = rows.get(event.id);
-                  const closedAt = event.closedAt > 0n ? Number(event.closedAt) : Date.now();
-                  if (event.connection) {
-                    rows.set(event.id, {
-                      connection: event.connection,
-                      uplinkRate: 0,
-                      downlinkRate: 0,
-                      uplinkTotal: event.connection.uplinkTotal,
-                      downlinkTotal: event.connection.downlinkTotal,
-                      closedAt,
-                    });
-                  } else if (row) {
-                    rows.set(event.id, {
-                      ...row,
-                      uplinkRate: 0,
-                      downlinkRate: 0,
-                      closedAt,
-                    });
-                  }
-                  break;
-                }
-              }
-            }
-            pruneClosedRows(rows);
-            return { rows, loaded: true };
-          });
-        }
+          { interval: SUBSCRIPTION_INTERVAL }, { signal },
+        )) update((data) => appendConnections(data, message));
       },
       true,
       // The core may GC its closed-connection cache. A mounted connection view
@@ -497,34 +435,4 @@ function withLanguageHeader(transport: Transport, language: string): Transport {
     stream: (method, signal, timeoutMs, header, input, contextValues) =>
       transport.stream(method, signal, timeoutMs, addLanguage(header), input, contextValues),
   };
-}
-
-function appendHistory(history: number[], value: number): number[] {
-  const next = history.concat(value);
-  if (next.length > STATUS_HISTORY_LENGTH) {
-    return next.slice(next.length - STATUS_HISTORY_LENGTH);
-  }
-  return next;
-}
-
-function pruneClosedRows(rows: Map<string, ConnectionRow>) {
-  let closedCount = 0;
-  for (const row of rows.values()) {
-    if (row.closedAt !== null) {
-      closedCount += 1;
-    }
-  }
-  if (closedCount <= CLOSED_CONNECTIONS_MAX) {
-    return;
-  }
-  const closedRows: { id: string; closedAt: number }[] = [];
-  for (const [id, row] of rows) {
-    if (row.closedAt !== null) {
-      closedRows.push({ id, closedAt: row.closedAt });
-    }
-  }
-  closedRows.sort((left, right) => left.closedAt - right.closedAt);
-  for (let i = 0; i < closedRows.length - CLOSED_CONNECTIONS_MAX; i++) {
-    rows.delete(closedRows[i].id);
-  }
 }

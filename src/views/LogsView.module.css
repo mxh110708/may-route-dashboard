@@ -27,11 +27,6 @@
   border-radius: var(--radius-xs);
 }
 
-[dir="rtl"] .log-view {
-  direction: ltr;
-  unicode-bidi: isolate;
-}
-
 @media (max-width: 720px) {
   :global(.page):not(:global(.page-full)) .log-view {
       height: calc(100dvh - 230px);

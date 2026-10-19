@@ -256,11 +256,6 @@
   animation-delay: 0.9s;
 }
 
-[dir="rtl"] .sidebar-brand-version, [dir="rtl"] .server-uptime {
-  direction: ltr;
-  unicode-bidi: isolate;
-}
-
 @media (max-width: 720px) {
   .app {
       flex-direction: column;
@@ -297,10 +292,6 @@
       padding-bottom: calc(var(--space-14) + env(safe-area-inset-bottom));
       transform: translateX(-100%);
       transition: transform 0.2s ease;
-    }
-
-  [dir="rtl"] .sidebar {
-      transform: translateX(100%);
     }
 
   .sidebar.open {

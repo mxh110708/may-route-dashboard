@@ -67,7 +67,7 @@ export class StreamStore<T> {
     private runStream: (context: StreamContext<T>) => Promise<void>,
     private resetOnReconnect = false,
     private pauseWhenHidden = true,
-    private releaseWhenUnused = resetOnReconnect,
+    private releaseWhenUnused: boolean | ((data: T) => T) = resetOnReconnect,
   ) {
     this.snapshot = { phase: "connecting", data: createInitial() };
   }
@@ -85,7 +85,9 @@ export class StreamStore<T> {
         activityListeners.delete(this.activityChanged);
         // These stores already rebuild from an authoritative reset on the next
         // subscription. Do not retain a large unused connection table meanwhile.
-        if (this.releaseWhenUnused) this.snapshot = { phase: "connecting", data: this.createInitial() };
+        if (typeof this.releaseWhenUnused === "function") {
+          this.snapshot = { ...this.snapshot, data: this.releaseWhenUnused(this.snapshot.data) };
+        } else if (this.releaseWhenUnused) this.snapshot = { phase: "connecting", data: this.createInitial() };
       }
     };
   };
@@ -156,7 +158,9 @@ export class StreamStore<T> {
           update: (updater) => {
             if (signal.aborted) return;
             attempt = 0;
-            this.setSnapshot({ phase: "active", data: updater(this.snapshot.data) });
+            const data = updater(this.snapshot.data);
+            if (this.snapshot.phase === "active" && data === this.snapshot.data) return;
+            this.setSnapshot({ phase: "active", data });
           },
         });
       } catch (error) {

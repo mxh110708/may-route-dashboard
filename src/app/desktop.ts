@@ -71,6 +71,11 @@ export interface DesktopPriorityState {
   lastSwitch: { from: string; to: string; at: string; reason: string } | null;
 }
 
+export type DesktopPrioritySummary = Pick<DesktopPriorityState,
+  "running" | "directMode" | "active" | "preferred" | "monitoredSelected" | "needsReload" | "selected"> & {
+  settings: { group: string };
+};
+
 export interface DesktopProfile {
   id: string;
   name: string;
@@ -356,6 +361,7 @@ export interface DesktopHost {
     proxyPortState?(): Promise<DesktopProxyPortState>;
     proxyPortSave?(ports: DesktopProxyPorts, revision: string, profileId: string, running: boolean): Promise<DesktopProxyPortState>;
     priorityState?(): Promise<DesktopPriorityState>;
+    prioritySummary?(): Promise<DesktopPrioritySummary>;
     prioritySave?(settings: DesktopPrioritySettings, revision: string, profileId: string | null): Promise<DesktopPriorityState>;
     priorityApply?(revision: string, profileId: string | null): Promise<void>;
     reapplySystemProxy?(): Promise<void>;

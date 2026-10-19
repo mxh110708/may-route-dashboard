@@ -8,6 +8,33 @@ afterEach(() => {
 });
 
 describe("interface font memory ownership", () => {
+  it("a discarded failed load cannot evict a newer successful selection of the same font", async () => {
+    const faces = new Set();
+    const id = "font-" + "c".repeat(64);
+    let selected = id;
+    const pending: Array<{ resolve(): void; reject(error: unknown): void }> = [];
+    let loads = 0;
+    vi.stubGlobal("FontFace", class {
+      load() {
+        loads++;
+        return new Promise((resolve, reject) => pending.push({ resolve: () => resolve(this), reject }));
+      }
+    });
+    vi.stubGlobal("document", { fonts: faces, documentElement: { style: { setProperty: vi.fn() } } });
+    configurePreferenceStorage({ get: () => selected, set: () => {}, remove: () => {}, subscribe: () => () => {} });
+    const fonts = { data: async () => new Uint8Array([0, 1]) } as never;
+    const old = prepareInterfaceFont(id, fonts);
+    await Promise.resolve();
+    selected = "default"; discardUnselectedInterfaceFont(id); selected = id;
+    const current = prepareInterfaceFont(id, fonts);
+    await Promise.resolve();
+    pending[1].resolve(); applyPreparedInterfaceFont(id, await current);
+    const rejected = expect(old).rejects.toThrow("discarded load");
+    pending[0].reject(new Error("discarded load")); await rejected;
+    await prepareInterfaceFont(id, fonts);
+    expect(loads).toBe(2); expect(faces.size).toBe(1);
+    selected = "default"; applyPreparedInterfaceFont("default", "sans-serif");
+  });
   it("passes imported bytes without duplicating their buffer or exposing adjacent data", () => {
     const buffer = new ArrayBuffer(1024);
     const source = new Uint8Array(buffer, 120, 700);
