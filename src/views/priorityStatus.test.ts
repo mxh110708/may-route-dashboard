@@ -42,4 +42,15 @@ describe("priority running status", () => {
   it("does not invent monitoring when the selection is unavailable", () => {
     expect(priorityStatus({ ...view, selected: null }).label).toBe("等待节点状态");
   });
+  it("reports idle, unknown and multiple region monitoring without using the editor group", () => {
+    const usage = { ...view, usageAware: true, activeGroups: [], activityAvailable: true, active: false };
+    expect(priorityStatus(usage).label).toBe("等待入口流量");
+    expect(priorityStatus({ ...usage, activityAvailable: false }).label).toBe("等待入口使用状态");
+    expect(priorityStatus({ ...usage, needsReload: true }).label).toBe("需要重载一次");
+    const activeGroups = ["West", "HK"].map(group => ({ group, selected: "main", preferred: "main", monitoredSelected: true }));
+    expect(priorityStatus({ ...usage, active: true, activeGroups }).label).toBe("2 个入口监测中");
+    const summary = compactPrioritySummary({ ...usage, active: true, activeGroups });
+    expect(summary.activeGroups).toEqual(activeGroups);
+    expect(samePrioritySummary(summary, { ...summary, activeGroups: activeGroups.slice(1) })).toBe(false);
+  });
 });

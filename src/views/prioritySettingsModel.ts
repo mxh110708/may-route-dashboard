@@ -1,5 +1,28 @@
 import type { DesktopPrioritySettings } from "../app/desktop";
 
+function groupOrders(settings: DesktopPrioritySettings): Record<string, string[]> {
+  const orders = Object.fromEntries(Object.entries(settings.groupOrders ?? {}).map(([group, order]) => [group, [...order]]));
+  if (settings.group && !Object.hasOwn(orders, settings.group) && settings.order.length) Object.defineProperty(orders, settings.group, { value: [...settings.order], enumerable: true, writable: true, configurable: true });
+  return orders;
+}
+export function priorityDraftForGroup(settings: DesktopPrioritySettings, group: string): DesktopPrioritySettings {
+  const orders = groupOrders(settings);
+  return { ...settings, group, order: Object.hasOwn(orders, group) ? [...orders[group]] : [], groupOrders: orders };
+}
+export function changePriorityDraft(settings: DesktopPrioritySettings, patch: Partial<DesktopPrioritySettings>): DesktopPrioritySettings {
+  const next = { ...settings, ...patch, groupOrders: groupOrders(settings) };
+  if (patch.order) Object.defineProperty(next.groupOrders, next.group, { value: [...patch.order], enumerable: true, writable: true, configurable: true });
+  return next;
+}
+export function priorityDraftChanged(draft: DesktopPrioritySettings, base: DesktopPrioritySettings): boolean {
+  const comparable = (value: DesktopPrioritySettings) => {
+    const { group: _group, order: _order, groupOrders: _orders, ...global } = value;
+    const orders = groupOrders(value);
+    return JSON.stringify([global, Object.keys(orders).sort().filter(group => orders[group].length).map(group => [group, orders[group]])]);
+  };
+  return comparable(draft) !== comparable(base);
+}
+
 export function movePriorityNode(order: string[], from: number, to: number): string[] {
   if (!Number.isInteger(from) || !Number.isInteger(to) || from < 0 || to < 0 || from >= order.length || to >= order.length) return order;
   const next = [...order]; const [item] = next.splice(from, 1); next.splice(to, 0, item); return next;

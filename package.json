@@ -17,7 +17,7 @@
     "generate:dev": "cp ../sing-box/daemon/started_service.proto proto/daemon/started_service.proto && buf generate",
     "lint": "eslint src scripts eslint.config.js vite.config.ts",
     "lint:css": "stylelint \"src/**/*.css\"",
-    "test": "vitest run"
+    "test": "vitest run --dir src"
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.14.0",
