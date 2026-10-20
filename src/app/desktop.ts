@@ -54,6 +54,7 @@ export interface DesktopPrioritySettings {
   probeTimeoutMs: number;
   healthyIntervalMs: number;
   failureIntervalMs: number;
+  groupLatencyCeilings: Record<string, number>;
 }
 export interface DesktopPriorityState {
   reconciled?: boolean;

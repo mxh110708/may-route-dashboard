@@ -1,12 +1,32 @@
 import { describe, expect, it } from "vitest";
 import { changePriorityDraft, movePriorityNode, priorityDraftChanged, priorityDraftError, priorityDraftForGroup } from "./prioritySettingsModel";
-const settings = {enabled:true,group:"Entry",order:[],failureRounds:3,backupSuccessRounds:2,recoverySuccessRounds:3,recoveryStableMs:120000,failbackCooldownMs:60000,probeTimeoutMs:8000,healthyIntervalMs:30000,failureIntervalMs:10000};
+const settings = {enabled:true,group:"Entry",order:[],failureRounds:3,backupSuccessRounds:2,recoverySuccessRounds:3,recoveryStableMs:120000,failbackCooldownMs:60000,probeTimeoutMs:8000,healthyIntervalMs:30000,failureIntervalMs:10000,
+  groupLatencyCeilings:{}};
 describe("priority settings editor", () => {
   it("reorders without mutating source", () => {const original=["a","b","c"];expect(movePriorityNode(original,2,0)).toEqual(["c","a","b"]);expect(original).toEqual(["a","b","c"]);});
   it("ignores invalid drag and keyboard indexes", () => {for(const index of [-1,NaN,4,0.5])expect(movePriorityNode(["a"],index,0)).toEqual(["a"]);});
   it("allows following group order and prevents empty explicit order", () => {expect(priorityDraftError(settings,false,["a"])).toBeNull();expect(priorityDraftError(settings,true,["a"])).not.toBeNull();});
   it("rejects missing nodes and out of range settings", () => {expect(priorityDraftError({...settings,order:["gone"]},true,["a"])).not.toBeNull();expect(priorityDraftError({...settings,failureRounds:0},false,["a"])).not.toBeNull();expect(priorityDraftError({...settings,probeTimeoutMs:NaN},false,["a"])).not.toBeNull();});
   it("can disable monitoring when no profile is selected", () => {expect(priorityDraftError({...settings,enabled:false},false,[])).toBeNull();});
+  it("validates and saves latency policy without changing per-region orders", () => {
+    for (const value of [NaN,99,60001,-1,100.5]) {
+      expect(priorityDraftError({...settings,groupLatencyCeilings:{Entry:value}},false,["a"])).not.toBeNull();
+    }
+    const base={...settings,groupOrders:{Entry:["a"]}};
+    const edited=changePriorityDraft(base,{groupLatencyCeilings:{Entry:3000}});
+    expect(priorityDraftError(edited,false,["a"])).toBeNull();
+    expect(edited.groupOrders).toEqual(base.groupOrders);expect(priorityDraftChanged(edited,base)).toBe(true);
+    expect(priorityDraftError({...edited,groupLatencyCeilings:{Entry:0}},false,["a"])).toBeNull();
+  });
+  it("latency limits survive cross-region editing and viewing does not create another save", () => {
+    const west=changePriorityDraft(settings,{groupLatencyCeilings:{Entry:2500}});
+    const hk=changePriorityDraft(priorityDraftForGroup(west,"HK"),{groupLatencyCeilings:{...west.groupLatencyCeilings,HK:1500}});
+    const restored=priorityDraftForGroup(hk,"Entry");
+    expect(restored.groupLatencyCeilings).toEqual({Entry:2500,HK:1500});
+    expect(priorityDraftChanged(restored,hk)).toBe(false);
+    expect(priorityDraftChanged({...restored,groupLatencyCeilings:{HK:1500,Entry:2500}},hk)).toBe(false);
+    expect(settings.groupLatencyCeilings).toEqual({});
+  });
   it("switching editor regions restores each custom order without creating unsaved changes", () => {
     const base = { ...settings, group: "West", order: ["w2", "w1"], groupOrders: { West: ["w2", "w1"], Europe: ["e2", "e1"] } };
     const europe = priorityDraftForGroup(base, "Europe"), west = priorityDraftForGroup(europe, "West");

@@ -3,7 +3,8 @@ import type { DesktopPriorityState } from "../app/desktop";
 import { compactPrioritySummary, priorityStatus, samePrioritySummary } from "./priorityStatus";
 
 const view: DesktopPriorityState = {
-  settings: { enabled: true, group: "Entry", order: [], failureRounds: 3, backupSuccessRounds: 2, recoverySuccessRounds: 3, recoveryStableMs: 120000, failbackCooldownMs: 60000, probeTimeoutMs: 8000, healthyIntervalMs: 30000, failureIntervalMs: 10000 },
+  settings: { enabled: true, group: "Entry", order: [], failureRounds: 3, backupSuccessRounds: 2, recoverySuccessRounds: 3, recoveryStableMs: 120000, failbackCooldownMs: 60000, probeTimeoutMs: 8000, healthyIntervalMs: 30000, failureIntervalMs: 10000,
+    groupLatencyCeilings:{} },
   revision: "1", profileId: "test", groups: [], path: "test.json", running: true,
   directMode: false, active: true, preferred: "main", monitoredSelected: true,
   needsReload: false, selected: "main", lastSwitch: null,

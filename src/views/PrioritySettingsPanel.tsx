@@ -5,9 +5,11 @@ import { changePriorityDraft, movePriorityNode, priorityDraftChanged, priorityDr
 import { priorityStatus } from "./priorityStatus";
 import { Icon } from "../components/Icon";
 import { createVisiblePoller } from "../lib/visiblePoller";
+import { useI18n } from "../app/i18n";
+import { PRIORITY_LATENCY_PRESETS, priorityLatencyCeiling, priorityLatencyPreset } from "../lib/priorityLatencyPresets";
 import styles from "./PrioritySettingsPanel.module.css";
 
-type NumberKey = Exclude<keyof DesktopPrioritySettings, "enabled" | "group" | "order" | "groupOrders">;
+type NumberKey = Exclude<keyof DesktopPrioritySettings, "enabled" | "groupLatencyCeilings" | "group" | "order" | "groupOrders">;
 const numbers: { key: NumberKey; label: string; min: number; max: number; seconds?: boolean }[] = [
   { key: "failureRounds", label: "故障确认次数", min: 1, max: 20 },
   { key: "backupSuccessRounds", label: "备用连续成功次数", min: 1, max: 20 },
@@ -20,6 +22,7 @@ const numbers: { key: NumberKey; label: string; min: number; max: number; second
 ];
 
 export function PrioritySettingsPanel({ host }: { host: DesktopHost }) {
+  const { t } = useI18n();
   const api = host.profiles;
   const [view, setView] = useState<DesktopPriorityState | null>(null);
   const [base, setBase] = useState<DesktopPriorityState | null>(null);
@@ -73,12 +76,21 @@ export function PrioritySettingsPanel({ host }: { host: DesktopHost }) {
   const validation = draft ? priorityDraftError(draft, custom, nodes) : null;
   const order = draft ? custom ? draft.order : nodes : [];
   const change = (patch: Partial<DesktopPrioritySettings>) => { setDraft(current => current ? changePriorityDraft(current, patch) : current); setMessage(""); };
+  const ceiling = draft ? priorityLatencyCeiling(draft.group, draft.groupLatencyCeilings) : undefined;
+  const ceilingValue = draft && Object.hasOwn(draft.groupLatencyCeilings, draft.group) ? draft.groupLatencyCeilings[draft.group] : ceiling;
+  const preset = draft ? priorityLatencyPreset(draft.group) : null;
+  const changeCeiling = (value: number | null) => {
+    if (!draft?.group) return;
+    const limits = { ...draft.groupLatencyCeilings };
+    if (value === null) delete limits[draft.group]; else Object.defineProperty(limits, draft.group, { value, enumerable: true, configurable: true, writable: true });
+    change({ groupLatencyCeilings: limits });
+  };
   const save = async () => {
     if (!draft || !base || validation || conflict) return;
     generation.current++; mutating.current = true; setBusy(true); setError("");
     try {
       const value = await api.prioritySave!(draft, base.revision, base.profileId); accept(value);
-      setMessage(value.needsReload ? "各入口顺序已保存。当前代理缺少所需探测入口，请重载一次后使用。" : "已保存，各入口组独立记忆。监测按实际流量自动应用，切换地区无需再次保存或重载。");
+      setMessage(value.needsReload ? "各入口策略已保存。当前代理缺少所需探测入口，请重载一次后使用。" : "顺序与延迟上限已保存，各入口组独立记忆。监测按实际流量自动应用，切换地区无需再次保存或重载。");
     }
     catch (reason) { setError(String(reason)); } finally { mutating.current = false; setBusy(false); }
   };
@@ -114,7 +126,7 @@ export function PrioritySettingsPanel({ host }: { host: DesktopHost }) {
       {view.active && ((view.activeGroups?.some(group => !group.monitoredSelected)) ?? (view.selected && !view.monitoredSelected)) && <p role="alert">部分正在使用的节点不在对应入口组的顺序中，不受自动切换保护；可将其加入该组顺序并保存。</p>}
       {view.needsReload && <p role="status">当前代理配置缺少匹配的探测入口，重载一次或下次启动后即可按实际流量自动监测。</p>}
       {view.usageAware && view.running && draft.enabled && view.activityAvailable === false && !view.needsReload && <p role="status">正在读取实际使用的入口组；读取恢复后自动继续监测。</p>}
-      {view.reconciled && <p role="status">已根据当前配置同步顺序，失效节点已排除；有效节点保留原有顺序。新增节点可从“加入备用节点”选择；原顺序全部失效时跟随当前组的顺序。</p>}
+      {view.reconciled && <p role="status">已根据当前配置同步策略，失效节点及已移除分组的延迟上限已排除；有效节点保留原有顺序。新增节点可从“加入备用节点”选择；原顺序全部失效时跟随当前组的顺序。</p>}
       {conflict && <p role="alert">配置文件或当前配置已在其他位置变化，请刷新后再保存。</p>}
       {dirty && <p>有未保存修改，当前运行策略不受影响。</p>}
       {draft.group && !view.groups.some(group => group.tag === draft.group) && <p role="alert">已保存的分组“{draft.group}”不存在或不符合入口代理组结构，请重新选择；不会自动改用其他分组。</p>}
@@ -173,7 +185,7 @@ export function PrioritySettingsPanel({ host }: { host: DesktopHost }) {
       <details className={styles.details}><summary>切换规则<span className={styles.summaryHint}>探测与恢复</span></summary><div className={styles.detailBody}>
         <p>分组从当前配置读取，仅包含实际代理节点；业务、汇总、直连和混合组不参与。从自定义顺序移除的节点不受监测。</p>
         <p>当前节点独立探测，不等待备用探测完成。首次失败后约 1 秒再次复核，达到设定次数才切换；1 秒不包含探测耗时，不代表 1 秒内完成切换。</p>
-        <p>每次探测需三个 HTTPS 目标中至少两个成功。备用须连续通过检测，且跳过当前节点；全部不可用时保持当前选择，不转为直连，也不按最低延迟排名。</p>
+        <p>每次探测需三个 HTTPS 目标中至少两个成功。备用须连续通过检测，且跳过当前节点；全部不可用时保持当前选择，不转为直连。按配置顺序选择合格节点，不持续追逐最低延迟。</p>
         <p>手动改选受监测节点会更新当前首选，仍受故障切换保护。恢复需同时满足连续成功、稳定时间和冷却条件；自动重载保留当前首选。</p>
       </div></details>
       <details className={styles.details}><summary>高级参数<span className={styles.summaryHint}>确认次数 · 探测间隔</span></summary><div className={styles.detailBody}>
@@ -182,6 +194,23 @@ export function PrioritySettingsPanel({ host }: { host: DesktopHost }) {
           value={Number.isFinite(draft[item.key]) ? draft[item.key] / (item.seconds ? 1000 : 1) : ""}
           onChange={event => change({ [item.key]: event.target.value === "" ? NaN : Number(event.target.value) * (item.seconds ? 1000 : 1) })} /></Field><p className={styles.range} id={`priority-${item.key}-range`}>{item.min}–{item.max}{item.seconds ? " 秒" : " 次"}</p></div>)}
       </div></div></details>
+      <details className={styles.details}><summary>{t("High-latency failover")}</summary><div className={styles.detailBody}>
+        <p>{t("Each entry group has its own absolute limit. Major regions use conservative presets; unknown or mixed regions use connectivity checks until configured.")}</p>
+        <p>{preset ? t("Regional default: {region}, {milliseconds} ms.", { region: t(preset.label), milliseconds: preset.ceilingMs }) : t("No unambiguous regional default for this group.")}</p>
+        <div className={styles.grid}>
+          <Field label={t("Apply regional preset")}><Select value="" placeholder={t("Choose a region")} disabled={busy || !draft.group}
+            options={PRIORITY_LATENCY_PRESETS.map(item => ({ value: item.id, label: `${t(item.label)} · ${item.ceilingMs} ms` }))}
+            onChange={id => { const selected = PRIORITY_LATENCY_PRESETS.find(item => item.id === id); if (selected) changeCeiling(selected.ceilingMs); }} /></Field>
+          <Field label={t("Proxy response limit for this group (ms)")}><input className="input" type="number" min={0} max={60000} step={1}
+            disabled={busy || !draft.group} value={Number.isFinite(ceilingValue) && ceilingValue !== 0 ? ceilingValue : ""}
+            onChange={event => changeCeiling(event.target.value === "" ? 0 : Number(event.target.value))} /></Field>
+        </div>
+        <p>{t("Saved independently for this group. Use 100–60000 ms; zero or an empty value disables high-latency switching for this group.")}</p>
+        <Button size="small" disabled={busy || !draft.group || !Object.hasOwn(draft.groupLatencyCeilings, draft.group)} onClick={() => changeCeiling(null)}>{t("Restore regional default")}</Button>
+        <p>{t("Three consecutive over-limit probes must span at least 10 seconds. A normal probe resets confirmation. Backups need a 20% margin below the limit; stable recovery and cooldown also apply before switching back.")}</p>
+        <p>{t("The limit measures the second-fastest successful HTTPS response among three targets, after the TLS handshake. It includes server processing and is not ICMP ping. Setup and handshake times remain available in diagnostics.")}</p>
+        <p>{t("Presets are initial response budgets for access from mainland China. Adjust them for your network; unmeasured regions remain provisional.")}</p>
+      </div></details>
       <details className={styles.details}><summary>配置文件</summary><div className={styles.detailBody}><p className={styles.path}>{view.path}</p></div></details>
       </div>
       {validation && <p role="alert">{validation}</p>}

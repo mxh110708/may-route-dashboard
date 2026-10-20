@@ -16,9 +16,10 @@ export function changePriorityDraft(settings: DesktopPrioritySettings, patch: Pa
 }
 export function priorityDraftChanged(draft: DesktopPrioritySettings, base: DesktopPrioritySettings): boolean {
   const comparable = (value: DesktopPrioritySettings) => {
-    const { group: _group, order: _order, groupOrders: _orders, ...global } = value;
+    const { group: _group, order: _order, groupOrders: _orders, groupLatencyCeilings: _ceilings, ...global } = value;
     const orders = groupOrders(value);
-    return JSON.stringify([global, Object.keys(orders).sort().filter(group => orders[group].length).map(group => [group, orders[group]])]);
+    return JSON.stringify([global, Object.entries(value.groupLatencyCeilings).sort(([a], [b]) => a.localeCompare(b)),
+      Object.keys(orders).sort().filter(group => orders[group].length).map(group => [group, orders[group]])]);
   };
   return comparable(draft) !== comparable(base);
 }
@@ -31,6 +32,7 @@ export function priorityDraftError(settings: DesktopPrioritySettings, custom: bo
   if (settings.enabled && !nodes.length) return "当前分组没有可参与切换的代理节点。";
   if (custom && !settings.order.length) return "自定义顺序至少需要一个节点。";
   if (settings.order.some(tag => !nodes.includes(tag))) return "部分节点已不在当前分组，请刷新或移除这些节点。";
+  if (Object.entries(settings.groupLatencyCeilings).some(([group, value]) => !group.trim() || !Number.isInteger(value) || value !== 0 && (value < 100 || value > 60000))) return "入口组延迟上限必须为 100–60000 的整数毫秒；0 表示仅检测连通性。";
   for (const key of ["failureRounds", "backupSuccessRounds", "recoverySuccessRounds"] as const) {
     if (!Number.isInteger(settings[key]) || settings[key] < 1 || settings[key] > 20) return "连续轮数必须为 1–20 的整数。";
   }
