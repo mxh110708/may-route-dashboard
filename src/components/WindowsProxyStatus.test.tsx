@@ -14,7 +14,7 @@ describe("Windows system proxy status", () => {
       expect(html).toContain('role="status"');
       expect(html).toContain('aria-haspopup="dialog"');
       expect(html).not.toContain("重新核对并恢复");
-      expect(html).not.toContain("已开启，地址匹配 MXH Route");
+      expect(html).not.toContain("已开启，地址匹配 May Route");
     },
   );
   it("keeps suspended state visible even while busy", () => {

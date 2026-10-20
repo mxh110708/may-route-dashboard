@@ -82,7 +82,7 @@ export function Brand(props: { className?: string; product?: string | null }) {
   const product = props.product === undefined ? "dashboard" : props.product;
   return (
     <div className={cx("setup-brand", props.className)}>
-      MXH Route
+      May Route
       {product !== null && <small>{product}</small>}
     </div>
   );

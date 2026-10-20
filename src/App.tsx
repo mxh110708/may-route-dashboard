@@ -392,7 +392,7 @@ function EndpointToolbarTitle<T>(props: {
   return props.count(status.data) > 1 && props.tag !== "" ? props.taggedTitle : props.title;
 }
 
-const DESKTOP_LOCAL_SERVER: Server = { id: "local", name: "MXH Route", url: "", secret: "" };
+const DESKTOP_LOCAL_SERVER: Server = { id: "local", name: "May Route", url: "", secret: "" };
 const DESKTOP_ACTIVE_KEY = "desktop-active-server";
 
 export function App(props: { desktop?: DesktopHost } = {}) {
@@ -964,7 +964,7 @@ function ShellContent(props: ShellProps & { onRetry: () => void }) {
             >
               <Icon name={menuOpen ? "close" : "menu"} size={18} />
             </IconButton>
-            <div className={styles.mobileTopbarBrand}>MXH Route</div>
+            <div className={styles.mobileTopbarBrand}>May Route</div>
           </header>
         )}
         {menuOpen && (
@@ -979,7 +979,7 @@ function ShellContent(props: ShellProps & { onRetry: () => void }) {
           <nav className={styles.sidebar}>
             <div className={styles.sidebarTitlebar} />
             <div className={styles.sidebarBrand}>
-              MXH Route
+              May Route
               {serverInfo && <span className={styles.sidebarBrandVersion}>{serverInfo.version}</span>}
             </div>
             {started ? (
@@ -996,7 +996,7 @@ function ShellContent(props: ShellProps & { onRetry: () => void }) {
         ) : (
           <nav className={cx(styles.sidebar, menuOpen && styles.open)}>
             <div className={styles.sidebarBrand}>
-              MXH Route
+              May Route
               {serverInfo && <span className={styles.sidebarBrandVersion}>{serverInfo.version}</span>}
             </div>
             {navItem("overview", t("Overview"), "dashboard", route.page === "overview")}

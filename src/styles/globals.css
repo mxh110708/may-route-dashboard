@@ -15,7 +15,7 @@
   --font-serif: "Source Serif 4 Variable", "Apple Color Emoji", "Noto Color Emoji", ui-serif, georgia, serif;
   --font-mono: "IBM Plex Mono", "Apple Color Emoji", "Noto Color Emoji", ui-monospace, "SF Mono", menlo, consolas, monospace;
 
-  /* Shared MXH desktop palette. Navigation, inputs and overlays have separate
+  /* Shared May desktop palette. Navigation, inputs and overlays have separate
      roles so a blue sidebar never leaks into an editor or a native title bar. */
   --bg: #fff;
   --surface: #f0f4fa;

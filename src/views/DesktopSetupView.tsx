@@ -40,19 +40,19 @@ export function DesktopSetupView(props: {
       title = t("Connecting...");
       break;
     case "not-installed":
-      title = t("The MXH Route service is not installed");
+      title = t("The May Route service is not installed");
       break;
     case "not-running":
-      title = t("The MXH Route service is not running");
+      title = t("The May Route service is not running");
       break;
     case "owned-by-other-user":
-      title = t("MXH Route is being used by another user");
+      title = t("May Route is being used by another user");
       break;
     case "version-mismatch":
       title = t("Incompatible service version");
       break;
     default:
-      title = t("Cannot connect to the MXH Route service");
+      title = t("Cannot connect to the May Route service");
       break;
   }
 
@@ -85,13 +85,13 @@ export function DesktopSetupView(props: {
           {state.phase === "owned-by-other-user" && (
             <div className="banner">
               <Icon name="info" />
-              <div>{t("You can take control, which will stop the other user's MXH Route service.")}</div>
+              <div>{t("You can take control, which will stop the other user's May Route service.")}</div>
             </div>
           )}
           {packageServiceMissing && (
             <div className="banner error">
               <Icon name="warning_amber" />
-              <div>{t("Reinstall MXH Route to restore the system service.")}</div>
+              <div>{t("Reinstall May Route to restore the system service.")}</div>
             </div>
           )}
           {!packageServiceMissing && (
@@ -163,9 +163,9 @@ export function DesktopSetupView(props: {
       </div>
       {confirmingTakeOver && (
         <Dialog onClose={() => (repairing ? undefined : setConfirmingTakeOver(false))}>
-          <h3>{t("Take Over MXH Route?")}</h3>
+          <h3>{t("Take Over May Route?")}</h3>
           <p className="dialog-message">
-            {t("The other user's MXH Route service will stop.")}
+            {t("The other user's May Route service will stop.")}
           </p>
           <div className="row-actions dialog-actions">
             <Button onClick={() => setConfirmingTakeOver(false)} disabled={repairing}>

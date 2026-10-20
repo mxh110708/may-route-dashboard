@@ -17,7 +17,7 @@ import { ServiceStatus_Type } from "./gen/daemon/started_service_pb";
 import { watchStoredValues } from "./lib/storage";
 import styles from "./TrayMenu.module.css";
 
-const TRAY_LOCAL_SERVER: Server = { id: "tray-local", name: "MXH Route", url: "", secret: "" };
+const TRAY_LOCAL_SERVER: Server = { id: "tray-local", name: "May Route", url: "", secret: "" };
 type Page = "home" | "routing" | "groups" | "nodes" | "profiles" | "more";
 interface ItemOptions { icon?: IconName; detail?: string; checked?: boolean; submenu?: boolean; unavailable?: boolean; id?: string }
 
@@ -132,7 +132,7 @@ function TrayMenuContent({ host }: { host: DesktopHost }) {
   const title = page === "routing" ? t("Routing Mode") : page === "more" ? t("More") : page === "profiles" ? t("Profiles") : page === "nodes" ? group?.tag ?? t("Groups") : t("Groups");
   const searchable = page === "groups" || page === "nodes" || page === "profiles";
   return <div className={styles.viewport} onMouseDown={(event) => { if (event.target === event.currentTarget) host.application.closeTrayMenu(); }}>
-    <div ref={panel} className={styles.panel} role="menu" aria-label="MXH Route" data-page={page} onKeyDown={(event) => {
+    <div ref={panel} className={styles.panel} role="menu" aria-label="May Route" data-page={page} onKeyDown={(event) => {
       if (event.key === "Escape" || (event.key === "ArrowLeft" && !(event.target instanceof HTMLInputElement))) { event.preventDefault(); if (page === "home") host.application.closeTrayMenu(); else back(); return; }
       if (event.key === "ArrowRight" && event.target instanceof HTMLButtonElement && event.target.getAttribute("aria-haspopup") === "menu") { event.preventDefault(); event.target.click(); return; }
       if (event.target instanceof HTMLInputElement && event.key !== "Tab" && event.key !== "ArrowDown") return;

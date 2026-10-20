@@ -21,7 +21,7 @@ export async function prepareInterfaceFont(id: string, fonts?: DesktopHost["font
   let loading = loadedFonts.get(id);
   if (!loading) {
     loading = (async () => {
-      const family = id === "wenkai" ? "MXH WenKai" : "MXH-" + id;
+      const family = id === "wenkai" ? "May WenKai" : "May-" + id;
       if (id === "wenkai") {
         const [{ WENKAI_PARTS }, { createBundledInterfaceFont }] = await Promise.all([
           import("../assets/fonts/wenkai/parts"), import("./bundledInterfaceFont"),

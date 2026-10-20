@@ -12,7 +12,7 @@ export function WindowsProxyStatus(props: {
   if (!props.health || props.health === "unsupported") return null;
   const labels = {
     inactive: "未检测（服务停止或正在切换）",
-    healthy: "已开启，地址匹配 MXH Route",
+    healthy: "已开启，地址匹配 May Route",
     confirming: "检测到开关关闭，正在复核",
     repairing: "正在恢复系统代理开关",
     foreign: "地址 / PAC / 自动检测已改变，已避让",

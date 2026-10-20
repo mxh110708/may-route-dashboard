@@ -107,12 +107,12 @@ export function SettingsView() {
               title={t("Source Code")}
               href={
                 host !== null
-                  ? "https://github.com/mxh110708/mxh-route-desktop"
-                  : "https://github.com/mxh110708/mxh-route-dashboard"
+                  ? "https://github.com/mxh110708/may-route-desktop"
+                  : "https://github.com/mxh110708/may-route-dashboard"
               }
               contextMenu={
                 host !== null ? (
-                  <MenuLink href="https://github.com/mxh110708/mxh-route-desktop/releases">
+                  <MenuLink href="https://github.com/mxh110708/may-route-desktop/releases">
                     {t("Releases")}
                   </MenuLink>
                 ) : undefined

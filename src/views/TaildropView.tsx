@@ -611,7 +611,7 @@ function SendRequestFlow(props: {
 
   let body: ReactNode;
   if (!started) {
-    body = <div className={styles.emptyHint}>{t("The MXH Route service is not running")}</div>;
+    body = <div className={styles.emptyHint}>{t("The May Route service is not running")}</div>;
   } else if (!tailscale.data.loaded) {
     body = (
       <div className={styles.dialogBusy}>
