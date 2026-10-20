@@ -1,5 +1,6 @@
 .entry {
   width: 100%;
+  min-width: 0;
   font: inherit;
   color: var(--text);
   text-align: start;
@@ -21,6 +22,22 @@
   align-items: center;
   margin-inline-start: auto;
   color: var(--text-faint);
+}
+
+.groups {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--space-12);
+}
+
+.group {
+  min-width: 0;
+}
+
+.group + .group {
+  padding-top: var(--space-12);
+  margin-top: var(--space-12);
+  border-top: 1px solid var(--border);
 }
 
 .state,
@@ -47,6 +64,10 @@
 .node {
   margin-top: var(--space-12);
   font-weight: var(--weight-normal);
+}
+
+.group .node {
+  margin-top: 0;
 }
 
 .meta {
