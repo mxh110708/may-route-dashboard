@@ -8,7 +8,7 @@ import { UpdateDialog } from "./UpdateViews";
 
 configurePreferenceStorage({ get: (name) => name === "language" ? "en" : undefined, set() {}, remove() {}, subscribe: () => () => {} });
 
-const info = { versionName: "1.14.2-mxh.13", releaseURL: "https://example.com/release", downloadURL: "https://example.com/update.exe", fileSize: 100, releaseNotes: "", isPrerelease: false };
+const info = { versionName: "1.14.2-may.19", releaseURL: "https://example.com/release", downloadURL: "https://example.com/update.exe", fileSize: 100, releaseNotes: "", isPrerelease: false };
 const initial: DesktopUpdatesState = { supported: true, githubTokenSupported: false, trackSelectable: false, track: "stable", checkUpdateEnabled: true, proxyAddress: "", prompted: true, info, checking: false, downloading: false, cancelling: false, installing: false, downloadProgress: 0 };
 
 function render(state: Partial<DesktopUpdatesState>) {
