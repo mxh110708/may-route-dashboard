@@ -55,3 +55,8 @@ export function priorityLatencyCeiling(group: string, overrides: Record<string, 
   const value = Object.hasOwn(overrides, group) ? overrides[group] : priorityLatencyPreset(group)?.ceilingMs;
   return value && Number.isFinite(value) && value >= 100 ? value : undefined;
 }
+
+/** Complete proxy + TLS + HTTP budget, distinct from the response-phase limit. */
+export function priorityTotalLatencyCeiling(responseCeiling: number): number {
+  return Math.max(1_500, responseCeiling * 4);
+}

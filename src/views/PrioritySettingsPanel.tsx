@@ -207,8 +207,8 @@ export function PrioritySettingsPanel({ host }: { host: DesktopHost }) {
         </div>
         <p>{t("Saved independently for this group. Use 100–60000 ms; zero or an empty value disables high-latency switching for this group.")}</p>
         <Button size="small" disabled={busy || !draft.group || !Object.hasOwn(draft.groupLatencyCeilings, draft.group)} onClick={() => changeCeiling(null)}>{t("Restore regional default")}</Button>
-        <p>{t("Three consecutive over-limit probes must span at least 10 seconds. A normal probe resets confirmation. Backups need a 20% margin below the limit; stable recovery and cooldown also apply before switching back.")}</p>
-        <p>{t("The limit measures the second-fastest successful HTTPS response among three targets, after the TLS handshake. It includes server processing and is not ICMP ping. Setup and handshake times remain available in diagnostics.")}</p>
+        <p>{t("Three consecutive over-limit probes must span at least 10 seconds. Recurring failures or slow rounds also count: by default, three of the last five rounds within two minutes, including the latest, must be abnormal. One isolated incident does not switch nodes.")}</p>
+        <p>{t("The response limit measures the second-fastest successful HTTP response after TLS. Complete HTTPS requests also have a budget of four times this limit, at least 1500 ms. Neither is ICMP ping. Backups need a 20% margin for both measurements; stable recovery and cooldown still apply.")}</p>
         <p>{t("Presets are initial response budgets for access from mainland China. Adjust them for your network; unmeasured regions remain provisional.")}</p>
       </div></details>
       <details className={styles.details}><summary>配置文件</summary><div className={styles.detailBody}><p className={styles.path}>{view.path}</p></div></details>
