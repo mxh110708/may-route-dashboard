@@ -7,6 +7,9 @@ export type Language = (typeof LANGUAGES)[number]["value"];
 
 // English uses the message key directly. Only Simplified Chinese needs a catalog.
 export const TRANSLATIONS = {
+  "Initializing monitoring": "正在初始化监测",
+  "Entry policies saved. Monitoring is initializing and will continue automatically.": "各入口策略已保存，正在初始化监测，完成后自动继续。",
+  "Initializing monitoring. Active entry groups will be read automatically when ready.": "正在初始化监测，完成后自动读取实际使用的入口组。",
   "Current update connection: Direct (no proxy configured)": "当前更新连接：直连（尚未设置代理）",
   "Current update proxy: {address}": "当前更新代理：{address}",
   "Example: http://127.0.0.1:2080": "例如：http://127.0.0.1:2080",

@@ -4,21 +4,23 @@ export function compactPrioritySummary(view: DesktopPrioritySummary): DesktopPri
   return { settings: { group: view.settings.group, ...(view.usageAware ? { enabled: view.settings.enabled } : {}) }, running: view.running, directMode: view.directMode,
     active: view.active, preferred: view.preferred, monitoredSelected: view.monitoredSelected,
     needsReload: view.needsReload, selected: view.selected,
+    ...(view.initializing ? { initializing: true } : {}),
     ...(view.usageAware ? { usageAware: true, activityAvailable: view.activityAvailable, activeGroups: view.activeGroups } : {}) };
 }
 
 export function samePrioritySummary(a: DesktopPrioritySummary | null, b: DesktopPrioritySummary): boolean {
   return a !== null && a.settings.group === b.settings.group && a.running === b.running &&
-    a.settings.enabled === b.settings.enabled && a.usageAware === b.usageAware && a.activityAvailable === b.activityAvailable &&
+    a.settings.enabled === b.settings.enabled && a.usageAware === b.usageAware && a.activityAvailable === b.activityAvailable && a.initializing === b.initializing &&
     JSON.stringify(a.activeGroups) === JSON.stringify(b.activeGroups) &&
     a.directMode === b.directMode && a.active === b.active && a.preferred === b.preferred &&
     a.monitoredSelected === b.monitoredSelected && a.needsReload === b.needsReload && a.selected === b.selected;
 }
 
 // Describe the running policy, never the editable (possibly unsaved) switch.
-export function priorityStatus<T extends DesktopPrioritySummary>(view: T): { label: string; tone: "neutral" | "good" | "warning" } {
+export function priorityStatus<T extends DesktopPrioritySummary>(view: T, initializingLabel = "正在初始化监测"): { label: string; tone: "neutral" | "good" | "warning" } {
   if (!view.running) return { label: "代理未运行", tone: "neutral" };
   if (view.directMode) return { label: "直连模式 · 已暂停", tone: "neutral" };
+  if (view.initializing) return { label: initializingLabel, tone: "neutral" };
   if (view.usageAware && !view.active && view.settings.enabled) {
     if (view.needsReload) return { label: "需要重载一次", tone: "warning" };
     if (view.activityAvailable === false) return { label: "等待入口使用状态", tone: "neutral" };

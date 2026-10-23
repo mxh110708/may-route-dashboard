@@ -43,6 +43,15 @@ describe("priority running status", () => {
   it("does not invent monitoring when the selection is unavailable", () => {
     expect(priorityStatus({ ...view, selected: null }).label).toBe("等待节点状态");
   });
+  it("keeps initialization neutral, then reports a verified missing runtime", () => {
+    const starting = { ...view, usageAware: true, active: false, activeGroups: [], activityAvailable: false, initializing: true, needsReload: true };
+    expect(priorityStatus(starting)).toEqual({ label: "正在初始化监测", tone: "neutral" });
+    const summary = compactPrioritySummary(starting);
+    expect(summary.initializing).toBe(true);
+    expect(samePrioritySummary(summary, { ...summary, initializing: false })).toBe(false);
+    expect(priorityStatus({ ...starting, initializing: false }).label).toBe("需要重载一次");
+    expect(priorityStatus({ ...starting, initializing: false, needsReload: false }).label).toBe("等待入口使用状态");
+  });
   it("reports idle, unknown and multiple region monitoring without using the editor group", () => {
     const usage = { ...view, usageAware: true, activeGroups: [], activityAvailable: true, active: false };
     expect(priorityStatus(usage).label).toBe("等待入口流量");

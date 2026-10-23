@@ -90,7 +90,7 @@ export function PrioritySettingsPanel({ host }: { host: DesktopHost }) {
     generation.current++; mutating.current = true; setBusy(true); setError("");
     try {
       const value = await api.prioritySave!(draft, base.revision, base.profileId); accept(value);
-      setMessage(value.needsReload ? "各入口策略已保存。当前代理缺少所需探测入口，请重载一次后使用。" : "顺序与延迟上限已保存，各入口组独立记忆。监测按实际流量自动应用，切换地区无需再次保存或重载。");
+      setMessage(value.initializing ? t("Entry policies saved. Monitoring is initializing and will continue automatically.") : value.needsReload ? "各入口策略已保存。当前代理缺少所需探测入口，请重载一次后使用。" : "顺序与延迟上限已保存，各入口组独立记忆。监测按实际流量自动应用，切换地区无需再次保存或重载。");
     }
     catch (reason) { setError(String(reason)); } finally { mutating.current = false; setBusy(false); }
   };
@@ -104,7 +104,7 @@ export function PrioritySettingsPanel({ host }: { host: DesktopHost }) {
     try { await api.priorityApply!(base.revision, base.profileId); accept(await api.priorityState!()); setMessage("代理已重新加载，保存的策略已应用。"); }
     catch (reason) { setError(`已保存，但未确认重载完成：${String(reason)}`); } finally { mutating.current = false; setBusy(false); }
   };
-  const status = view ? priorityStatus(view) : null;
+  const status = view ? priorityStatus(view, t("Initializing monitoring")) : null;
   return <section className={styles.panel} aria-label="自动故障切换设置">
     {error && <p role="alert">{error}</p>}
     {!draft || !view || !base ? <p>正在读取策略配置…</p> : <>
@@ -124,8 +124,9 @@ export function PrioritySettingsPanel({ host }: { host: DesktopHost }) {
         {view.lastSwitch && <details className={styles.details}><summary>最近切换<span className={styles.summaryHint}>{new Date(view.lastSwitch.at).toLocaleTimeString()}</span></summary><div className={styles.detailBody}><p>{view.lastSwitch.from} → {view.lastSwitch.to}</p><p>{view.lastSwitch.reason}</p></div></details>}
       </div>
       {view.active && ((view.activeGroups?.some(group => !group.monitoredSelected)) ?? (view.selected && !view.monitoredSelected)) && <p role="alert">部分正在使用的节点不在对应入口组的顺序中，不受自动切换保护；可将其加入该组顺序并保存。</p>}
-      {view.needsReload && <p role="status">当前代理配置缺少匹配的探测入口，重载一次或下次启动后即可按实际流量自动监测。</p>}
-      {view.usageAware && view.running && draft.enabled && view.activityAvailable === false && !view.needsReload && <p role="status">正在读取实际使用的入口组；读取恢复后自动继续监测。</p>}
+      {view.initializing && <p role="status">{t("Initializing monitoring. Active entry groups will be read automatically when ready.")}</p>}
+      {view.needsReload && !view.initializing && <p role="status">当前代理配置缺少匹配的探测入口，重载一次或下次启动后即可按实际流量自动监测。</p>}
+      {view.usageAware && view.running && draft.enabled && view.activityAvailable === false && !view.needsReload && !view.initializing && <p role="status">正在读取实际使用的入口组；读取恢复后自动继续监测。</p>}
       {view.reconciled && <p role="status">已根据当前配置同步策略，失效节点及已移除分组的延迟上限已排除；有效节点保留原有顺序。新增节点可从“加入备用节点”选择；原顺序全部失效时跟随当前组的顺序。</p>}
       {conflict && <p role="alert">配置文件或当前配置已在其他位置变化，请刷新后再保存。</p>}
       {dirty && <p>有未保存修改，当前运行策略不受影响。</p>}
@@ -217,7 +218,7 @@ export function PrioritySettingsPanel({ host }: { host: DesktopHost }) {
       {message && <p role="status">{message}</p>}
       <div className={styles.actions}>
         <Button variant="primary" disabled={busy || (!dirty && !view.reconciled) || conflict || !!validation} onClick={() => void save()}>保存配置</Button>
-        {view.needsReload && <Button disabled={busy || dirty || conflict || !view.running} onClick={() => setConfirm(true)}>重载并应用</Button>}
+        {view.needsReload && !view.initializing && <Button disabled={busy || dirty || conflict || !view.running} onClick={() => setConfirm(true)}>重载并应用</Button>}
         <Button disabled={busy} onClick={() => void refresh()}>{dirty ? "放弃未保存修改并刷新" : "刷新"}</Button>
       </div>
     </>}

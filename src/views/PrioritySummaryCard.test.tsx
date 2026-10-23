@@ -27,4 +27,16 @@ describe("priority overview entry", () => {
     const html = renderToStaticMarkup(<PrioritySummaryContent view={view} failed={false} onOpen={() => {}} />);
     for (const label of ["US-West-LA Entry", "HK Entry", "west-node", "hk-node", "2 个入口监测中"]) expect(html).toContain(label);
   });
+  it("does not offer reload or claim pending edits while runtime initialization is in progress", () => {
+    const view: DesktopPrioritySummary = { settings: { group: "", enabled: true }, running: true, directMode: false,
+      usageAware: true, activityAvailable: false, active: false, selected: null, preferred: null,
+      monitoredSelected: false, needsReload: true, initializing: true, activeGroups: [] };
+    const html = renderToStaticMarkup(<PrioritySummaryContent view={view} failed={false} onOpen={() => {}} />);
+    expect(html).toContain("正在初始化监测");
+    expect(html).not.toContain("需要重载");
+    expect(html).not.toContain("有待应用配置");
+    const english = renderToStaticMarkup(<PrioritySummaryContent view={view} failed={false} onOpen={() => {}} initializingLabel="Initializing monitoring" />);
+    expect(english).toContain("Initializing monitoring");
+    expect(english).not.toContain("正在初始化监测");
+  });
 });

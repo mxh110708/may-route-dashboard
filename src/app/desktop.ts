@@ -69,6 +69,7 @@ export interface DesktopPriorityState {
   preferred: string | null;
   monitoredSelected: boolean;
   needsReload: boolean;
+  initializing?: boolean;
   selected: string | null;
   lastSwitch: { from: string; to: string; at: string; reason: string } | null;
   usageAware?: boolean;
@@ -77,7 +78,7 @@ export interface DesktopPriorityState {
 }
 
 export type DesktopPrioritySummary = Pick<DesktopPriorityState,
-  "running" | "directMode" | "active" | "preferred" | "monitoredSelected" | "needsReload" | "selected" | "usageAware" | "activityAvailable" | "activeGroups"> & {
+  "running" | "directMode" | "active" | "preferred" | "monitoredSelected" | "needsReload" | "initializing" | "selected" | "usageAware" | "activityAvailable" | "activeGroups"> & {
   settings: { group: string; enabled?: boolean };
 };
 
