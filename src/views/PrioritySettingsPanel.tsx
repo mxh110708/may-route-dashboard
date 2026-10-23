@@ -7,7 +7,14 @@ import { Icon } from "../components/Icon";
 import { createVisiblePoller } from "../lib/visiblePoller";
 import { useI18n } from "../app/i18n";
 import { PRIORITY_LATENCY_PRESETS, priorityLatencyCeiling, priorityLatencyPreset } from "../lib/priorityLatencyPresets";
+import { PRIORITY_EDITOR_GROUPS_PREFERENCE, parsePriorityEditorGroups, priorityEditorGroup } from "../lib/priorityEditorPreference";
+import { loadStoredJson, saveStoredJson } from "../lib/storage";
 import styles from "./PrioritySettingsPanel.module.css";
+
+function storedEditorGroups(): Record<string, string> {
+  try { return parsePriorityEditorGroups(loadStoredJson(PRIORITY_EDITOR_GROUPS_PREFERENCE)); }
+  catch { return {}; }
+}
 
 type NumberKey = Exclude<keyof DesktopPrioritySettings, "enabled" | "groupLatencyCeilings" | "group" | "order" | "groupOrders">;
 const numbers: { key: NumberKey; label: string; min: number; max: number; seconds?: boolean }[] = [
@@ -41,12 +48,17 @@ export function PrioritySettingsPanel({ host }: { host: DesktopHost }) {
   const dragTarget = useRef<string | null>(null);
   const [dragOffset, setDragOffset] = useState(0);
   const nodeList = useRef<HTMLOListElement>(null);
-  const editingGroup = useRef("");
+  const editingGroup = useRef<{ profileId: string | null; group: string } | null>(null);
   const cancelDrag = () => { dragActive.current = false; setDragging(null); setDropTarget(null); dragTarget.current = null; setDragOffset(0); };
   const accept = (value: DesktopPriorityState) => {
-    const group = value.groups.some(group => group.tag === editingGroup.current) ? editingGroup.current :
-      value.groups.some(group => group.tag === value.settings.group) ? value.settings.group : value.activeGroups?.[0]?.group ?? value.groups[0]?.tag ?? "";
-    editingGroup.current = group;
+    let remembered: string | undefined;
+    if (editingGroup.current?.profileId === value.profileId) remembered = editingGroup.current.group;
+    else if (value.profileId) {
+      const stored = storedEditorGroups();
+      if (Object.hasOwn(stored, value.profileId)) remembered = stored[value.profileId];
+    }
+    const group = priorityEditorGroup(value.groups, remembered, value.settings.group, value.activeGroups);
+    editingGroup.current = { profileId: value.profileId, group };
     const next = priorityDraftForGroup(value.settings, group);
     setView(value); setBase(value); setDraft(next); setCustom(next.order.length > 0);
   };
@@ -137,8 +149,12 @@ export function PrioritySettingsPanel({ host }: { host: DesktopHost }) {
       <div className={styles.controlRow}><Field label="入口代理组"><Select value={view.groups.some(group => group.tag === draft.group) ? draft.group : ""} placeholder="请选择入口代理组" disabled={busy} options={[
         ...view.groups.map(group => ({ value: group.tag, label: group.tag })),
       ]} onChange={group => {
-        generation.current++; cancelDrag(); editingGroup.current = group;
+        generation.current++; cancelDrag(); editingGroup.current = { profileId: base.profileId, group };
         const next = priorityDraftForGroup(draft, group); setDraft(next); setCustom(next.order.length > 0); setMessage("");
+        if (base.profileId) {
+          try { saveStoredJson(PRIORITY_EDITOR_GROUPS_PREFERENCE, { ...storedEditorGroups(), [base.profileId]: group }); }
+          catch (reason) { setError(String(reason)); }
+        }
       }} /></Field></div>
       <div className={styles.row}><div className={styles.rowLabel}>自定义顺序<p>{custom ? "拖动节点或使用箭头调整顺序。" : "跟随当前配置中的组内排列。"}</p></div><Switch label="自定义顺序" value={custom} disabled={busy} onChange={value => {
         setCustom(value); change({ order: value ? [...nodes] : [] });
